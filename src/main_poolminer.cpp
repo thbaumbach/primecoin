@@ -164,6 +164,8 @@ int main (int argc, char** argv)
   std::string server = GetArg("-poolip", "127.0.0.1");
   std::string port = GetArg("-poolport", "9912");
   
+  pindexBest = new CBlockIndex();
+  
   GeneratePrimeTable();
   
   //init variables

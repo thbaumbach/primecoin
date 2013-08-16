@@ -4572,6 +4572,9 @@ void BitcoinMinerWallet(CWallet *pwallet)
   BitcoinMiner(pwallet, NULL);
 }
 
+//using CBlock* as input here for pool mining ist not very useful
+//but for testing purpose it's ok --- I will change that later
+//TODO: change 'pblock_input' into something useful
 void BitcoinMiner(CWallet *pwallet, CBlock *pblock_input)
 {
     printf("PrimecoinMiner started\n");
@@ -4579,8 +4582,8 @@ void BitcoinMiner(CWallet *pwallet, CBlock *pblock_input)
     RenameThread("primecoin-miner");
 
     // Each thread has its own kcd ey and counter
-    CReserveKey reservekey(pwallet);
-    unsigned int nExtraNonce = 0;
+    CReserveKey reservekey(pwallet); //will be ignored when pool-mining
+    unsigned int nExtraNonce = 0; //^
 
     unsigned int nPrimorialMultiplier = nPrimorialHashFactor;
     double nTimeExpected = 0;   // time expected to prime chain (micro-second)
@@ -4604,8 +4607,8 @@ void BitcoinMiner(CWallet *pwallet, CBlock *pblock_input)
           if (!pblocktemplate.get())
               return;
           pblock = &pblocktemplate->block;
-          IncrementExtraNonce(pblock, pindexPrev, nExtraNonce); //*TODO*
-        }
+          IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
+        }        
 
         if (fDebug && GetBoolArg("-printmining"))
             printf("Running PrimecoinMiner with %"PRIszu" transactions in block (%u bytes)\n", pblock->vtx.size(),
@@ -4770,7 +4773,7 @@ void BitcoinMiner(CWallet *pwallet, CBlock *pblock_input)
 
             // Check for stop or if block needs to be rebuilt
             boost::this_thread::interruption_point();
-            if (vNodes.empty())
+            if (pblock_input == NULL && vNodes.empty())
                 break;
             if (pblock->nNonce >= 0xffff0000)
                 break;
