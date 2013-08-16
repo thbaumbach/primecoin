@@ -98,18 +98,18 @@ bool getBlock(CBlock& pblock, const std::string& server, const std::string& port
       if (data_val.type() == json_spirit::null_type) {
         std::cerr << "[JSON_REQUEST] result empty" << std::endl;
         return false;
-      } else if (result_val.type() == json_spirit::str_type)
+      } else if (data_val.type() == json_spirit::str_type)
         strValue = data_val.get_str();
       else
         strValue = write_string(data_val, true);
       std::cout << "[JSON_REQUEST] data(" << strValue.length() << "): " << std::endl << strValue << std::endl;
       
-      if (strValue.length() != 258) {
-        std::cerr << "[JSON_REQUEST] data length != 258" << std::endl;
+      if (strValue.length() != 256) {
+        std::cerr << "[JSON_REQUEST] data length != 256" << std::endl;
         return false;
       }
       
-      parseHexString(strValue.c_str()+1, 256, localBlockData);
+      parseHexString(strValue.c_str(), 256, localBlockData);
       
       for (unsigned int i = 0; i < 128/4; ++i)
         ((unsigned int*)localBlockData)[i] = ByteReverse(((unsigned int*)localBlockData)[i]);
@@ -118,7 +118,7 @@ bool getBlock(CBlock& pblock, const std::string& server, const std::string& port
   
   {
     std::stringstream ss;
-    for (int i=0; i<8; ++i)
+    for (int i=7; i>=0; --i)
       ss << std::hex << *((int*)(localBlockData+4)+i);
     ss.flush();
     std::cout << ss.str() << std::endl;
@@ -126,7 +126,7 @@ bool getBlock(CBlock& pblock, const std::string& server, const std::string& port
   }  
   {
     std::stringstream ss;
-    for (int i=0; i<8; ++i)
+    for (int i=7; i>=0; --i)
       ss << std::hex << *((int*)(localBlockData+36)+i);
     ss.flush();
     std::cout << ss.str() << std::endl;
