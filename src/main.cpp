@@ -4565,13 +4565,20 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
     return true;
 }
 
-void static BitcoinMiner(CWallet *pwallet)
+void BitcoinMiner(CWallet *pwallet, CBlock *pblock);
+
+void BitcoinMinerWallet(CWallet *pwallet)
+{
+  BitcoinMiner(pwallet, NULL);
+}
+
+void BitcoinMiner(CWallet *pwallet, CBlock *pblock_input)
 {
     printf("PrimecoinMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
     RenameThread("primecoin-miner");
 
-    // Each thread has its own key and counter
+    // Each thread has its own kcd ey and counter
     CReserveKey reservekey(pwallet);
     unsigned int nExtraNonce = 0;
 
@@ -4581,7 +4588,7 @@ void static BitcoinMiner(CWallet *pwallet)
     bool fIncrementPrimorial = true; // increase or decrease primorial factor
 
     try { loop {
-        while (vNodes.empty())
+        while (pblock_input == NULL && vNodes.empty())
             MilliSleep(1000);
 
         //
@@ -4590,11 +4597,15 @@ void static BitcoinMiner(CWallet *pwallet)
         unsigned int nTransactionsUpdatedLast = nTransactionsUpdated;
         CBlockIndex* pindexPrev = pindexBest;
 
-        auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(reservekey));
-        if (!pblocktemplate.get())
-            return;
-        CBlock *pblock = &pblocktemplate->block;
-        IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
+        CBlock *pblock = pblock_input;
+        auto_ptr<CBlockTemplate> pblocktemplate;
+        if (pblock_input == NULL) {
+          pblocktemplate = auto_ptr<CBlockTemplate>(CreateNewBlock(reservekey));
+          if (!pblocktemplate.get())
+              return;
+          pblock = &pblocktemplate->block;
+          IncrementExtraNonce(pblock, pindexPrev, nExtraNonce); //*TODO*
+        }
 
         if (fDebug && GetBoolArg("-printmining"))
             printf("Running PrimecoinMiner with %"PRIszu" transactions in block (%u bytes)\n", pblock->vtx.size(),
@@ -4674,6 +4685,32 @@ void static BitcoinMiner(CWallet *pwallet)
                 SetThreadPriority(THREAD_PRIORITY_LOWEST);
                 break;
             }
+            
+            ///
+            /// ENABLE the following code, if you need data for the perftool
+            ///
+            /*if (nProbableChainLength > 0 && nTests > 10)
+            {
+              static CCriticalSection cs;
+              {
+                LOCK(cs);
+                
+                std::ofstream output_file("miner_data");
+                std::ofstream output_file_block("miner_data.blk", std::ofstream::out | std::ofstream::binary);
+                
+                ::Serialize(output_file_block, *pblock, 0, 0); //writeblock
+                
+                output_file << mpzFixedMultiplier.get_str(10) << std::endl;
+                output_file << fNewBlock << std::endl;
+                output_file << nTriedMultiplier << std::endl;
+                output_file << nPrimorialMultiplier << std::endl;
+                output_file << mpzHash.get_str(10) << std::endl;
+                
+                output_file.close();
+                output_file_block.close();
+              }
+            }*/
+            
             nRoundTests += nTests;
             nRoundPrimesHit += nPrimesHit;
 
@@ -4853,7 +4890,7 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet)
 
     minerThreads = new boost::thread_group();
     for (int i = 0; i < nThreads; i++)
-        minerThreads->create_thread(boost::bind(&BitcoinMiner, pwallet));
+        minerThreads->create_thread(boost::bind(&BitcoinMinerWallet, pwallet));
 }
 
 // Amount compression:

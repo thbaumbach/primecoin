@@ -6,7 +6,7 @@
 # :=0 --> UPnP support turned off by default at runtime
 # :=1 --> UPnP support turned on by default at runtime
 # :=- --> No UPnP support - miniupnp not required
-USE_UPNP:=0
+USE_UPNP:=-
 
 # :=1 --> Enable IPv6 support
 # :=0 --> Disable IPv6 support
@@ -130,7 +130,6 @@ OBJS= \
     obj/crypter.o \
     obj/key.o \
     obj/db.o \
-    obj/init.o \
     obj/keystore.o \
     obj/main.o \
     obj/net.o \
@@ -155,7 +154,7 @@ OBJS= \
     obj/prime.o \
     obj/checkpointsync.o
 
-all: primecoind
+all: primecoind perftest primeminer
 
 test check: test_primecoin FORCE
 	./test_primecoin
@@ -186,7 +185,13 @@ obj/%.o: %.cpp
 	      -e '/^$$/ d' -e 's/$$/ :/' < $(@:%.o=%.d) >> $(@:%.o=%.P); \
 	  rm -f $(@:%.o=%.d)
 
-primecoind: $(OBJS:obj/%=obj/%)
+primeminer: $(OBJS:obj/%=obj/%) obj/main_poolminer.o
+	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS)
+
+perftest: $(OBJS:obj/%=obj/%) obj/main_perftest.o
+	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS)
+
+primecoind: $(OBJS:obj/%=obj/%) obj/init.o
 	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS)
 
 TESTOBJS := $(patsubst test/%.cpp,obj-test/%.o,$(wildcard test/*.cpp))

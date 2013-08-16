@@ -22,7 +22,7 @@ USE_UPNP:=-
 USE_IPV6:=1
 
 DEPSDIR?=/usr/local
-BOOST_SUFFIX?=-mgw46-mt-sd-1_52
+BOOST_SUFFIX?=-mgw47-mt-s-1_54
 
 INCLUDEPATHS= \
  -I"$(CURDIR)" \
@@ -46,10 +46,11 @@ LIBS= \
  -l gmp
 
 DEFS=-DWIN32 -D_WINDOWS -DBOOST_THREAD_USE_LIB -DBOOST_SPIRIT_THREADSAFE
-DEBUGFLAGS=-g
-CFLAGS=-mthreads -O2 -w -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter $(DEBUGFLAGS) $(DEFS) $(INCLUDEPATHS)
+DEBUGFLAGS=
+# -march=i686 needed in CFLAGS for __sync_add_and_fetch_8 in main.cpp
+CFLAGS=-march=i686 -mthreads -O2 -w -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter $(DEBUGFLAGS) $(DEFS) $(INCLUDEPATHS)
 # enable: ASLR, DEP and large address aware
-LDFLAGS=-Wl,--dynamicbase -Wl,--nxcompat -Wl,--large-address-aware
+LDFLAGS=-Wl,--dynamicbase -Wl,--nxcompat -Wl,--large-address-aware -static
 
 TESTDEFS = -DTEST_DATA_DIR=$(abspath test/data)
 
@@ -80,7 +81,6 @@ OBJS= \
     obj/crypter.o \
     obj/key.o \
     obj/db.o \
-    obj/init.o \
     obj/keystore.o \
     obj/main.o \
     obj/net.o \
@@ -106,7 +106,7 @@ OBJS= \
     obj/checkpointsync.o
 
 
-all: primecoind.exe
+all: primecoind.exe perftest.exe primeminer.exe
 
 test check: test_primecoin.exe FORCE
 	test_primecoin.exe
@@ -123,7 +123,13 @@ leveldb/libleveldb.a:
 obj/%.o: %.cpp $(HEADERS)
 	$(CXX) -c $(CFLAGS) -o $@ $<
 
-primecoind.exe: $(OBJS:obj/%=obj/%)
+primeminer.exe: $(OBJS:obj/%=obj/%) obj/main_poolminer.o
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS)
+
+perftest.exe: $(OBJS:obj/%=obj/%) obj/main_perftest.o
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS)
+
+primecoind.exe: $(OBJS:obj/%=obj/%) obj/init.o
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS)
 
 TESTOBJS := $(patsubst test/%.cpp,obj-test/%.o,$(wildcard test/*.cpp))
