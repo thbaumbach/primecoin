@@ -4118,7 +4118,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
 // BitcoinMiner
 //
 
-int static FormatHashBlocks(void* pbuffer, unsigned int len)
+int FormatHashBlocks(void* pbuffer, unsigned int len)
 {
     unsigned char* pdata = (unsigned char*)pbuffer;
     unsigned int blocks = 1 + ((len + 8) / 64);
@@ -4565,17 +4565,16 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
     return true;
 }
 
-void BitcoinMiner(CWallet *pwallet, CBlock *pblock);
+#include "json/json_spirit_value.h"
+
+void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider);
 
 void BitcoinMinerWallet(CWallet *pwallet)
 {
   BitcoinMiner(pwallet, NULL);
 }
 
-//using CBlock* as input here for pool mining ist not very useful
-//but for testing purpose it's ok --- I will change that later
-//TODO: change 'pblock_input' into something useful
-void BitcoinMiner(CWallet *pwallet, CBlock *pblock_input)
+void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider)
 {
     printf("PrimecoinMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
@@ -4591,7 +4590,7 @@ void BitcoinMiner(CWallet *pwallet, CBlock *pblock_input)
     bool fIncrementPrimorial = true; // increase or decrease primorial factor
 
     try { loop {
-        while (pblock_input == NULL && vNodes.empty())
+        while (block_provider == NULL && vNodes.empty())
             MilliSleep(1000);
 
         //
@@ -4600,9 +4599,9 @@ void BitcoinMiner(CWallet *pwallet, CBlock *pblock_input)
         unsigned int nTransactionsUpdatedLast = nTransactionsUpdated;
         CBlockIndex* pindexPrev = pindexBest;
 
-        CBlock *pblock = pblock_input;
+        CBlock *pblock = (block_provider == NULL) ? NULL : block_provider->getBlock();
         auto_ptr<CBlockTemplate> pblocktemplate;
-        if (pblock_input == NULL) {
+        if (block_provider == NULL) {
           pblocktemplate = auto_ptr<CBlockTemplate>(CreateNewBlock(reservekey));
           if (!pblocktemplate.get())
               return;
@@ -4684,7 +4683,10 @@ void BitcoinMiner(CWallet *pwallet, CBlock *pblock_input)
             if (MineProbablePrimeChain(*pblock, mpzFixedMultiplier, fNewBlock, nTriedMultiplier, nProbableChainLength, nTests, nPrimesHit, nChainsHit, mpzHash, nPrimorialMultiplier, nSieveGenTime, pindexPrev))
             {
                 SetThreadPriority(THREAD_PRIORITY_NORMAL);
-                CheckWork(pblock, *pwalletMain, reservekey);
+				if (block_provider == NULL)
+					CheckWork(pblock, *pwalletMain, reservekey);
+				else
+					block_provider->submitBlock(pblock);
                 SetThreadPriority(THREAD_PRIORITY_LOWEST);
                 break;
             }
@@ -4773,15 +4775,18 @@ void BitcoinMiner(CWallet *pwallet, CBlock *pblock_input)
 
             // Check for stop or if block needs to be rebuilt
             boost::this_thread::interruption_point();
-            if (pblock_input == NULL && vNodes.empty())
+            if (block_provider == NULL && vNodes.empty())
                 break;
             if (pblock->nNonce >= 0xffff0000)
                 break;
             if (nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 10)
                 break;
-            if (pindexPrev != pindexBest)
+            if (pindexPrev != pindexBest || ((block_provider != NULL) && (GetTime() - nStart) > 6))
+				//or every 6 seconds force new block
+				//TODO: effiency -- this should be done by the main thread, not by the miner
+				//change this, so the miner just has to check for pindexPrev != pindexBest
                 break;
-            if (fNewBlock)
+            if (fNewBlock) //aka: sieve's done, we need a updated nonce			
             {
                 // Primecoin: a sieve+primality round completes
                 // Primecoin: estimate time to block

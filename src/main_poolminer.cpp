@@ -5,13 +5,11 @@
 
 #include "prime.h"
 #include "serialize.h"
-#include "json/json_spirit_value.h"
 #include "bitcoinrpc.h"
-//#include "json/json_spirit_reader_template.h"
-//#include "json/json_spirit_writer_template.h"
-//#include "json/json_spirit_utils.h"
+#include "json/json_spirit_value.h"
+#include <boost/thread.hpp>
 
-//<START> be compatible to original code
+//<START> be compatible to original code (not actually used!)
 #include "txdb.h"
 #include "walletdb.h"
 #include "wallet.h"
@@ -23,24 +21,33 @@ void StartShutdown() {
 }
 //<END>
 
-extern CBlockIndex* pindexBest; //*TODO*
-extern void BitcoinMiner(CWallet *pwallet, CBlock *pblock_input);
+/*********************************
+* global variables, structs and extern functions
+*********************************/
+
+extern CBlockIndex* pindexBest; //*TODO* use this in master thread
+extern void BitcoinMiner(CWallet *pwallet, CBlockProvider *CBlockProvider);
 extern bool fPrintToConsole;
 extern bool fDebug;
 extern json_spirit::Object CallRPC(const std::string& strMethod, const json_spirit::Array& params, const std::string& server, const std::string& port);
+extern int FormatHashBlocks(void* pbuffer, unsigned int len);
 
-typedef struct { 
+struct blockHeader_t { 
   //comments: BYTES <index> + <length>
-	int  version;   // 0+4
-	char	prevBlockHash[32]; // 4+32
-	char	merkleRoot[32];    //36+32
-	unsigned int  timestamp; //68+4
+	int  nVersion;   // 0+4
+	uint256	hashPrevBlock; // 4+32
+	uint256	hashMerkleRoot;    //36+32
+	unsigned int  nTime; //68+4
 	unsigned int  nBits;     //72+4
-	unsigned int  nonce;     //76+4
-} blockHeader_t; //=80 bytes header, carefully 'bout (un)packed struct
+	unsigned int  nNonce;     //76+4
+	unsigned char pchPadding[64]; //zeros?
+}; //=80 bytes header
 
-unsigned int getHexDigitValue(unsigned char c)
-{
+/*********************************
+* helping functions
+*********************************/
+
+unsigned int getHexDigitValue(unsigned char c) {
 	if( c >= '0' && c <= '9' )
 		return c-'0';
 	else if( c >= 'a' && c <= 'f' )
@@ -50,11 +57,9 @@ unsigned int getHexDigitValue(unsigned char c)
 	return 0;
 }
 
-void parseHexString(const char* hexString, unsigned int length, unsigned char* output)
-{
+void parseHexString(const char* hexString, unsigned int length, unsigned char* output) {
 	unsigned int lengthBytes = length / 2;
-	for(unsigned int i=0; i<lengthBytes; ++i)
-	{
+	for(unsigned int i=0; i<lengthBytes; ++i) {
 		// high digit
 		unsigned int d1 = getHexDigitValue(hexString[i*2+0]);
 		// low digit
@@ -64,7 +69,11 @@ void parseHexString(const char* hexString, unsigned int length, unsigned char* o
 	}
 }
 
-bool getBlock(CBlock& pblock, const std::string& server, const std::string& port) {
+/*********************************
+* GET_WORK from server and convert to mineable block
+*********************************/
+
+bool getBlockFromServer(CBlock& pblock, const std::string& server, const std::string& port) {
   unsigned char localBlockData[128];
   { //JSON GETWORK
     std::string strMethod = "getwork";
@@ -90,7 +99,7 @@ bool getBlock(CBlock& pblock, const std::string& server, const std::string& port
         strValue = result_val.get_str();
       else
         strValue = write_string(result_val, true);
-      std::cout << "[JSON_REQUEST] result(" << strValue.length() << "): " << std::endl << strValue << std::endl;
+      //std::cout << "[JSON_REQUEST] result(" << strValue.length() << "): " << std::endl << strValue << std::endl;
       
       const json_spirit::Object& result_obj = result_val.get_obj();
       const json_spirit::Value& data_val = find_value(result_obj, "data");
@@ -102,7 +111,7 @@ bool getBlock(CBlock& pblock, const std::string& server, const std::string& port
         strValue = data_val.get_str();
       else
         strValue = write_string(data_val, true);
-      std::cout << "[JSON_REQUEST] data(" << strValue.length() << "): " << std::endl << strValue << std::endl;
+      //std::cout << "[JSON_REQUEST] data(" << strValue.length() << "): " << std::endl << strValue << std::endl;
       
       if (strValue.length() != 256) {
         std::cerr << "[JSON_REQUEST] data length != 256" << std::endl;
@@ -121,7 +130,7 @@ bool getBlock(CBlock& pblock, const std::string& server, const std::string& port
     for (int i=7; i>=0; --i)
       ss << std::hex << *((int*)(localBlockData+4)+i);
     ss.flush();
-    std::cout << ss.str() << std::endl;
+    //std::cout << ss.str() << std::endl;
     pblock.hashPrevBlock.SetHex(ss.str().c_str());
   }  
   {
@@ -129,7 +138,7 @@ bool getBlock(CBlock& pblock, const std::string& server, const std::string& port
     for (int i=7; i>=0; --i)
       ss << std::hex << *((int*)(localBlockData+36)+i);
     ss.flush();
-    std::cout << ss.str() << std::endl;
+    //std::cout << ss.str() << std::endl;
     pblock.hashMerkleRoot.SetHex(ss.str().c_str());
   }
   
@@ -138,16 +147,119 @@ bool getBlock(CBlock& pblock, const std::string& server, const std::string& port
   pblock.nBits  = *((unsigned int*)(localBlockData+72));
   pblock.nNonce = *((unsigned int*)(localBlockData+76));
 
-  blockHeader_t* header = (blockHeader_t*)localBlockData;
-  std::cout << header->version << std::endl <<
-               pblock.hashPrevBlock.ToString() << std::endl <<
-               pblock.hashMerkleRoot.ToString() << std::endl <<
-               header->timestamp << std::endl <<
-               header->nBits << std::endl <<
-               header->nonce << std::endl;            
-  
   return true;
 }
+
+/*********************************
+* class CBlockProviderGW to
+*********************************/
+
+class CBlockProviderGW : public CBlockProvider {
+public:
+	CBlockProviderGW(const std::string& server, const std::string& port, int thread_id)
+	 : CBlockProvider(), _pblock(NULL), _server(server), _port(port), _thread_id(thread_id) { }
+	~CBlockProviderGW() { }
+	virtual CBlock* getBlock() {
+		if (_pblock != NULL)
+			delete _pblock;
+		_pblock = new CBlock();
+		if (!getBlockFromServer(*_pblock, _server, _port))
+			return NULL;
+		_pblock->nTime += _thread_id; //use timestamp for multithreading
+		std::cout << "[WORKER" << _thread_id << "] got_work" << std::endl;
+		return _pblock;
+	}
+	virtual void submitBlock(CBlock* pblock) {
+		std::string strMethod = "getwork";
+		std::vector<std::string> strParams;
+		//build block data
+		blockHeader_t block;
+		block.nVersion       = pblock->nVersion;
+		block.hashPrevBlock  = pblock->hashPrevBlock;
+		block.hashMerkleRoot = pblock->hashMerkleRoot;
+		block.nTime          = pblock->nTime;
+		block.nBits          = pblock->nBits;
+		block.nNonce         = pblock->nNonce;
+		FormatHashBlocks(&block, sizeof(block));
+		for (unsigned int i = 0; i < 128/4; ++i)
+		  ((unsigned int*)&block)[i] = ByteReverse(((unsigned int*)&block)[i]);
+		char pdata[128];
+		memcpy(pdata, &block, 128);
+		strParams.push_back(HexStr(BEGIN(pdata), END(pdata)));		
+		json_spirit::Array params = RPCConvertValues(strMethod, strParams);
+		json_spirit::Object reply_obj = CallRPC(strMethod, params, _server, _port); //submit
+		//TODO: what will be replied?
+		std::cout << "[WORKER" << _thread_id << "] share submitted" << std::endl;
+	}
+private:
+	CBlock* _pblock;
+	std::string _server;
+	std::string _port;
+	int _thread_id;
+};
+
+/*********************************
+* multi-threading
+*********************************/
+
+class CMasterThreadStub {
+public:
+  virtual void wait_for_master() = 0;
+  virtual boost::shared_mutex& get_working_lock() = 0;
+};
+
+class CWorkerThread { //worker=miner
+public:
+   CWorkerThread(CMasterThreadStub* master, int id) : _working_lock(NULL), _id(id), _master(master), _thread(&CWorkerThread::run, this) { }
+   void run() {
+      std::cout << "[WORKER" << _id << "] Hello World!" << std::endl;
+      _master->wait_for_master();
+      std::cout << "[WORKER" << _id << "] GoGoGo!" << std::endl;
+	  CBlockProviderGW* bprovider;
+      BitcoinMiner(NULL, bprovider = new CBlockProviderGW(GetArg("-poolip", "127.0.0.1"), GetArg("-poolport", "9912"), _id));
+      delete bprovider;
+      std::cout << "[WORKER" << _id << "] Bye Bye!" << std::endl;
+   }
+   void work() { //called from within master thread
+	  _working_lock = new boost::shared_lock<boost::shared_mutex>(_master->get_working_lock());
+   }
+private:
+   boost::shared_lock<boost::shared_mutex>* _working_lock;
+   int _id;
+   CMasterThreadStub* _master;
+   boost::thread _thread;
+};
+
+class CMasterThread : public CMasterThreadStub {
+public:
+	CMasterThread() : CMasterThreadStub() { }
+	void run() {
+	  int num_threads_to_use = GetArg("-genproclimit", 1);
+	  {
+        boost::unique_lock<boost::shared_mutex> lock(_mutex_master);
+        std::cout << "spawning " << num_threads_to_use << " worker thread(s)" << std::endl;
+        for (int i = 0; i < num_threads_to_use; ++i)
+        {
+          CWorkerThread* worker = new CWorkerThread(this, i);
+          worker->work(); //set working lock
+        }
+      }
+      // WORKER WILL START HERE implicitly by destroying the lock on mutex_master
+      // this part is very tricky, btw there's a minimum chance everything crashs here ;-) good luck
+	  wait_for_workers(); //TODO: replace this by a loop to check for a new block and update pindexBest
+	}
+	~CMasterThread() { }
+	void wait_for_master() { boost::shared_lock<boost::shared_mutex> lock(_mutex_master); }
+	boost::shared_mutex& get_working_lock() { return _mutex_working; }
+private:
+	void wait_for_workers() { boost::unique_lock<boost::shared_mutex> lock(_mutex_working); }
+	boost::shared_mutex _mutex_master;
+	boost::shared_mutex _mutex_working;
+};
+
+/*********************************
+* main - this is where it begins
+*********************************/
 
 int main (int argc, char** argv)
 {
@@ -157,23 +269,24 @@ int main (int argc, char** argv)
     return EXIT_FAILURE;
   }
   
+  //init everything:  
   ParseParameters(argc, argv);
   
   fPrintToConsole = true; //always on
   fDebug = GetBoolArg("-debug");
-  std::string server = GetArg("-poolip", "127.0.0.1");
-  std::string port = GetArg("-poolport", "9912");
   
   pindexBest = new CBlockIndex();
   
   GeneratePrimeTable();
   
-  //init variables
-  CBlock pblock;
-  if (!getBlock(pblock, server, port))
-    return EXIT_FAILURE;
-  //see CreateNewBlock & Genesis Block
-  BitcoinMiner(NULL, &pblock);
+  //ok, start mining:
+  CMasterThread* mt = new CMasterThread(); //<- the magic is in there
+  mt->run();
 
+  //end:
   return EXIT_SUCCESS;
 }
+
+/*********************************
+* and this is where it ends
+*********************************/

@@ -1077,7 +1077,7 @@ Object CallRPC(const string& strMethod, const Array& params, const std::string& 
         throw runtime_error("couldn't connect to server");
 
     // HTTP basic authentication
-    string strUserPass64 = EncodeBase64(mapArgs["-pooluser"] + ":" + mapArgs["-poolpassword"]);
+    string strUserPass64 = EncodeBase64(mapArgs["-pooluser"] + ":" + mapArgs["-poolpassword"]); //TODO: this is not thread-safe, right?!
     map<string, string> mapRequestHeaders;
     mapRequestHeaders["Authorization"] = string("Basic ") + strUserPass64;
 

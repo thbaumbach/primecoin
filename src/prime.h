@@ -11,6 +11,18 @@
 #include <gmpxx.h>
 #include <bitset>
 
+/**************/
+/* POOL ADDON */
+/**************/
+
+class CBlockProvider {
+public:
+	CBlockProvider() { }
+	~CBlockProvider() { }
+	virtual CBlock* getBlock() = 0;
+	virtual void submitBlock(CBlock* block) = 0;
+};
+
 /**********************/
 /* PRIMECOIN PROTOCOL */
 /**********************/
