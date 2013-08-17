@@ -159,7 +159,7 @@ OBJS= \
     obj/prime.o \
     obj/checkpointsync.o
 
-all: primecoind perftest primeminer
+all: primecoind
 
 test check: test_primecoin FORCE
 	./test_primecoin
@@ -191,9 +191,6 @@ obj/%.o: %.cpp
 	  rm -f $(@:%.o=%.d)
 
 primeminer: $(OBJS:obj/%=obj/%) obj/main_poolminer.o
-	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS)
-
-perftest: $(OBJS:obj/%=obj/%) obj/main_perftest.o
 	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS)
 
 primecoind: $(OBJS:obj/%=obj/%) obj/init.o

@@ -106,7 +106,7 @@ OBJS= \
     obj/checkpointsync.o
 
 
-all: primecoind.exe perftest.exe primeminer.exe
+all: primecoind.exe
 
 test check: test_primecoin.exe FORCE
 	test_primecoin.exe
@@ -124,9 +124,6 @@ obj/%.o: %.cpp $(HEADERS)
 	$(CXX) -c $(CFLAGS) -o $@ $<
 
 primeminer.exe: $(OBJS:obj/%=obj/%) obj/main_poolminer.o
-	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS)
-
-perftest.exe: $(OBJS:obj/%=obj/%) obj/main_perftest.o
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS)
 
 primecoind.exe: $(OBJS:obj/%=obj/%) obj/init.o
