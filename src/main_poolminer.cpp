@@ -40,8 +40,8 @@ struct blockHeader_t {
 	unsigned int  nTime; //68+4
 	unsigned int  nBits;     //72+4
 	unsigned int  nNonce;     //76+4
-	unsigned char pchPadding[64]; //zeros?
-}; //=80 bytes header
+	unsigned char primemultiplier[48]; //80+48
+}; //=128 bytes header (80 default + 48 primemultiplier)
 
 /*********************************
 * helping functions
@@ -128,17 +128,15 @@ bool getBlockFromServer(CBlock& pblock, const std::string& server, const std::st
   {
     std::stringstream ss;
     for (int i=7; i>=0; --i)
-      ss << std::hex << *((int*)(localBlockData+4)+i);
+	  ss << std::setw(8) << std::setfill('0') << std::hex << *((int*)(localBlockData+4)+i);
     ss.flush();
-    //std::cout << ss.str() << std::endl;
     pblock.hashPrevBlock.SetHex(ss.str().c_str());
   }  
   {
     std::stringstream ss;
     for (int i=7; i>=0; --i)
-      ss << std::hex << *((int*)(localBlockData+36)+i);
+	  ss << std::setw(8) << std::setfill('0') << std::hex << *((int*)(localBlockData+36)+i);
     ss.flush();
-    //std::cout << ss.str() << std::endl;
     pblock.hashMerkleRoot.SetHex(ss.str().c_str());
   }
   
@@ -146,6 +144,7 @@ bool getBlockFromServer(CBlock& pblock, const std::string& server, const std::st
   pblock.nTime  = *((unsigned int*)(localBlockData+68));
   pblock.nBits  = *((unsigned int*)(localBlockData+72));
   pblock.nNonce = *((unsigned int*)(localBlockData+76));
+  pblock.bnPrimeChainMultiplier = 0;
 
   return true;
 }
@@ -166,7 +165,7 @@ public:
 		if (!getBlockFromServer(*_pblock, _server, _port))
 			return NULL;
 		_pblock->nTime += _thread_id; //use timestamp for multithreading
-		std::cout << "[WORKER" << _thread_id << "] got_work" << std::endl;
+		std::cout << "[WORKER" << _thread_id << "] got_work with MerkleRoot: " << _pblock->hashMerkleRoot.ToString().c_str() << std::endl;
 		return _pblock;
 	}
 	virtual void submitBlock(CBlock* pblock) {
@@ -180,16 +179,25 @@ public:
 		block.nTime          = pblock->nTime;
 		block.nBits          = pblock->nBits;
 		block.nNonce         = pblock->nNonce;
-		FormatHashBlocks(&block, sizeof(block));
+		//block.bnPrimeChainMultiplier = pblock->bnPrimeChainMultiplier;
+		std::vector<unsigned char> primemultiplier = pblock->bnPrimeChainMultiplier.getvch();
+		if (primemultiplier.size() > 47)
+			std::cerr << "[WORKER" << _thread_id << "] share submission warning: not enough space for primemultiplier" << std::endl;
+		block.primemultiplier[0] = primemultiplier.size();
+		for (size_t i = 0; i < primemultiplier.size(); ++i)
+			block.primemultiplier[1+i] = primemultiplier[i];
+		//FormatHashBlocks(&block, sizeof(block));
 		for (unsigned int i = 0; i < 128/4; ++i)
 		  ((unsigned int*)&block)[i] = ByteReverse(((unsigned int*)&block)[i]);
 		char pdata[128];
 		memcpy(pdata, &block, 128);
-		strParams.push_back(HexStr(BEGIN(pdata), END(pdata)));		
+		std::string data_hex = HexStr(BEGIN(pdata), END(pdata));
+		//std::cout << "[JSON_REQUEST] SUBMIT data(" << data_hex.length() << "): " << std::endl << data_hex << std::endl;
+		strParams.push_back(data_hex);
 		json_spirit::Array params = RPCConvertValues(strMethod, strParams);
 		json_spirit::Object reply_obj = CallRPC(strMethod, params, _server, _port); //submit
-		//TODO: what will be replied?
-		std::cout << "[WORKER" << _thread_id << "] share submitted" << std::endl;
+		const json_spirit::Value& result_val = find_value(reply_obj, "result");
+		std::cout << "[WORKER" << _thread_id << "] share submitted -> " << (result_val.get_bool() ? "ACCEPTED" : "REJECTED") << " with MerkleRoot: " << pblock->hashMerkleRoot.ToString().c_str() << std::endl;
 	}
 private:
 	CBlock* _pblock;
