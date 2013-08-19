@@ -165,7 +165,7 @@ public:
 		if (!getBlockFromServer(*_pblock, _server, _port))
 			return NULL;
 		_pblock->nTime += _thread_id; //use timestamp for multithreading
-		std::cout << "[WORKER" << _thread_id << "] got_work with MerkleRoot: " << _pblock->hashMerkleRoot.ToString().c_str() << std::endl;
+		std::cout << "[WORKER" << _thread_id << "] got_work block=" << _pblock->GetHash().ToString().c_str() << std::endl;
 		return _pblock;
 	}
 	virtual void submitBlock(CBlock* pblock) {
