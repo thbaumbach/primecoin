@@ -196,8 +196,8 @@ public:
 		strParams.push_back(data_hex);
 		json_spirit::Array params = RPCConvertValues(strMethod, strParams);
 		json_spirit::Object reply_obj = CallRPC(strMethod, params, _server, _port); //submit
-		const json_spirit::Value& result_val = find_value(reply_obj, "result");
-		std::cout << "[WORKER" << _thread_id << "] share submitted -> " << (result_val.get_bool() ? "ACCEPTED" : "REJECTED") << " with MerkleRoot: " << pblock->hashMerkleRoot.ToString().c_str() << std::endl;
+		int retval = find_value(reply_obj, "result").get_int();
+		std::cout << "[WORKER" << _thread_id << "] share submitted -> " << (retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval == 1 ? "BLOCK" : "SHARE") << " with MerkleRoot: " << pblock->hashMerkleRoot.ToString().c_str() << std::endl;
 	}
 private:
 	CBlock* _pblock;
