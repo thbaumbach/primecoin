@@ -120,8 +120,8 @@ bool getBlockFromServer(CBlock& pblock, const std::string& server, const std::st
       
       parseHexString(strValue.c_str(), 256, localBlockData);
       
-      for (unsigned int i = 0; i < 128/4; ++i)
-        ((unsigned int*)localBlockData)[i] = ByteReverse(((unsigned int*)localBlockData)[i]);
+      //for (unsigned int i = 0; i < 128/4; ++i)
+      //  ((unsigned int*)localBlockData)[i] = ByteReverse(((unsigned int*)localBlockData)[i]);
     }
   }  
   
@@ -187,8 +187,8 @@ public:
 		for (size_t i = 0; i < primemultiplier.size(); ++i)
 			block.primemultiplier[1+i] = primemultiplier[i];
 		//FormatHashBlocks(&block, sizeof(block));
-		for (unsigned int i = 0; i < 128/4; ++i)
-		  ((unsigned int*)&block)[i] = ByteReverse(((unsigned int*)&block)[i]);
+		//for (unsigned int i = 0; i < 128/4; ++i)
+		//  ((unsigned int*)&block)[i] = ByteReverse(((unsigned int*)&block)[i]);
 		char pdata[128];
 		memcpy(pdata, &block, 128);
 		std::string data_hex = HexStr(BEGIN(pdata), END(pdata));
@@ -196,10 +196,10 @@ public:
 		strParams.push_back(data_hex);
 		json_spirit::Array params = RPCConvertValues(strMethod, strParams);
 		json_spirit::Object reply_obj = CallRPC(strMethod, params, _server, _port); //submit
-    const json_spirit::Value& result_val = find_value(reply_obj, "result");
-    int retval = 0;
-    if (result_val.type() == json_spirit::int_type)
-      retval = result_val.get_int();
+		const json_spirit::Value& result_val = find_value(reply_obj, "result");
+		int retval = 0;
+		if (result_val.type() == json_spirit::int_type)
+			retval = result_val.get_int();
 		std::cout << "[WORKER" << _thread_id << "] share submitted -> " << (retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval == 1 ? "BLOCK" : "SHARE") << std::endl;
 	}
 private:
