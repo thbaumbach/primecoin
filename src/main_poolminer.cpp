@@ -196,7 +196,10 @@ public:
 		strParams.push_back(data_hex);
 		json_spirit::Array params = RPCConvertValues(strMethod, strParams);
 		json_spirit::Object reply_obj = CallRPC(strMethod, params, _server, _port); //submit
-		int retval = find_value(reply_obj, "result").get_int();
+    const json_spirit::Value& result_val = find_value(reply_obj, "result");
+    int retval = 0;
+    if (result_val.type() == json_spirit::int_type)
+      retval = result_val.get_int();
 		std::cout << "[WORKER" << _thread_id << "] share submitted -> " << (retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval == 1 ? "BLOCK" : "SHARE") << std::endl;
 	}
 private:
