@@ -120,8 +120,8 @@ bool getBlockFromServer(CBlock& pblock, const std::string& server, const std::st
       
       parseHexString(strValue.c_str(), 256, localBlockData);
       
-      //for (unsigned int i = 0; i < 128/4; ++i)
-      //  ((unsigned int*)localBlockData)[i] = ByteReverse(((unsigned int*)localBlockData)[i]);
+      for (unsigned int i = 0; i < 128/4; ++i)
+        ((unsigned int*)localBlockData)[i] = ByteReverse(((unsigned int*)localBlockData)[i]);
     }
   }  
   
@@ -157,7 +157,7 @@ class CBlockProviderGW : public CBlockProvider {
 public:
 	CBlockProviderGW(const std::string& server, const std::string& port, int thread_id)
 	 : CBlockProvider(), _pblock(NULL), _server(server), _port(port), _thread_id(thread_id) { }
-	~CBlockProviderGW() { }
+	virtual ~CBlockProviderGW() { }
 	virtual CBlock* getBlock() {
 		if (_pblock != NULL)
 			delete _pblock;
@@ -186,9 +186,9 @@ public:
 		block.primemultiplier[0] = primemultiplier.size();
 		for (size_t i = 0; i < primemultiplier.size(); ++i)
 			block.primemultiplier[1+i] = primemultiplier[i];
-		//FormatHashBlocks(&block, sizeof(block));
-		//for (unsigned int i = 0; i < 128/4; ++i)
-		//  ((unsigned int*)&block)[i] = ByteReverse(((unsigned int*)&block)[i]);
+		//FormatHashBlocks(&block, sizeof(block)); //not used, unnecessary
+		for (unsigned int i = 0; i < 128/4; ++i)
+		  ((unsigned int*)&block)[i] = ByteReverse(((unsigned int*)&block)[i]);
 		char pdata[128];
 		memcpy(pdata, &block, 128);
 		std::string data_hex = HexStr(BEGIN(pdata), END(pdata));
