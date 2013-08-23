@@ -1060,11 +1060,12 @@ json_spirit::Value CRPCTable::execute(const std::string &strMethod, const json_s
     }
 }
 
-Object CallRPC(const string& strMethod, const Array& params, const std::string& server, const std::string& port)
+Object CallRPC(const string& strMethod, const Array& params, const std::string& server, const std::string& port, map<string,string>& mapHeadersRet)
 {
     if (mapArgs["-pooluser"] == "" || mapArgs["-poolpassword"] == "")
         throw runtime_error("Add the parameter -pooluser=<user> and -poolpassword=<password>\n");
-
+    
+    Object empty;
     // Connect to server:port
     bool fUseSSL = GetBoolArg("-rpcssl");
     asio::io_service io_service;
@@ -1073,9 +1074,10 @@ Object CallRPC(const string& strMethod, const Array& params, const std::string& 
     asio::ssl::stream<asio::ip::tcp::socket> sslStream(io_service, context);
     SSLIOStreamDevice<asio::ip::tcp> d(sslStream, fUseSSL);
     iostreams::stream< SSLIOStreamDevice<asio::ip::tcp> > stream(d);
-    if (!d.connect(server, port))
-        throw runtime_error("couldn't connect to server");
-
+    if (!d.connect(server, port)) {
+        printf("couldn't connect to server\n");
+        return empty;
+    }
     // HTTP basic authentication
     string strUserPass64 = EncodeBase64(mapArgs["-pooluser"] + ":" + mapArgs["-poolpassword"]); //TODO: this is not thread-safe, right?!
     map<string, string> mapRequestHeaders;
@@ -1091,24 +1093,33 @@ Object CallRPC(const string& strMethod, const Array& params, const std::string& 
     int nStatus = ReadHTTPStatus(stream, nProto);
 
     // Receive HTTP reply message headers and body
-    map<string, string> mapHeaders;
     string strReply;
-    ReadHTTPMessage(stream, mapHeaders, strReply, nProto);
+    ReadHTTPMessage(stream, mapHeadersRet, strReply, nProto);
 
-    if (nStatus == HTTP_UNAUTHORIZED)
-        throw runtime_error("incorrect pooluser or poolpassword (authorization failed)");
-    else if (nStatus >= 400 && nStatus != HTTP_BAD_REQUEST && nStatus != HTTP_NOT_FOUND && nStatus != HTTP_INTERNAL_SERVER_ERROR)
-        throw runtime_error(strprintf("server returned HTTP error %d", nStatus));
-    else if (strReply.empty())
-        throw runtime_error("no response from server");
+    if (nStatus == HTTP_UNAUTHORIZED) {
+        printf("incorrect pooluser or poolpassword (authorization failed)\n");
+        return empty;
+    }
+    else if (nStatus >= 400 && nStatus != HTTP_BAD_REQUEST && nStatus != HTTP_NOT_FOUND && nStatus != HTTP_INTERNAL_SERVER_ERROR) {
+        printf("server returned HTTP error %d\n", nStatus);
+        return empty;
+    }
+    else if (strReply.empty()) {
+        printf("no response from server\n");
+        return empty;
+    }
 
     // Parse reply
     Value valReply;
-    if (!read_string(strReply, valReply))
-        throw runtime_error("couldn't parse reply from server");
+    if (!read_string(strReply, valReply)) {
+        printf("couldn't parse reply from server\n");
+        return empty;
+    }
     const Object& reply = valReply.get_obj();
-    if (reply.empty())
-        throw runtime_error("expected reply to have result, error and id properties");
+    if (reply.empty()) {
+        printf("expected reply to have result, error and id properties\n");
+        return empty;
+    }
 
     return reply;
 }

@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstdio>
+#include <map>
 
 #include "prime.h"
 #include "serialize.h"
@@ -29,7 +30,7 @@ extern CBlockIndex* pindexBest; //*TODO* use this in master thread
 extern void BitcoinMiner(CWallet *pwallet, CBlockProvider *CBlockProvider);
 extern bool fPrintToConsole;
 extern bool fDebug;
-extern json_spirit::Object CallRPC(const std::string& strMethod, const json_spirit::Array& params, const std::string& server, const std::string& port);
+extern json_spirit::Object CallRPC(const std::string& strMethod, const json_spirit::Array& params, const std::string& server, const std::string& port, std::map<std::string,std::string>& mapHeadersRet);
 extern int FormatHashBlocks(void* pbuffer, unsigned int len);
 
 struct blockHeader_t { 
@@ -79,7 +80,8 @@ bool getBlockFromServer(CBlock& pblock, const std::string& server, const std::st
     std::string strMethod = "getwork";
     std::vector<std::string> strParams;
     json_spirit::Array params = RPCConvertValues(strMethod, strParams);
-    json_spirit::Object reply_obj = CallRPC(strMethod, params, server, port); //request
+    std::map<std::string,std::string> mapHeaders;
+    json_spirit::Object reply_obj = CallRPC(strMethod, params, server, port, mapHeaders); //request
     
     //parse reply
     const json_spirit::Value& result_val = find_value(reply_obj, "result");
@@ -194,14 +196,19 @@ public:
 		std::string data_hex = HexStr(BEGIN(pdata), END(pdata));
 		//std::cout << "[JSON_REQUEST] SUBMIT data(" << data_hex.length() << "): " << std::endl << data_hex << std::endl;
 		strParams.push_back(data_hex);
+    std::map<std::string,std::string> mapHeaders;
 		json_spirit::Array params = RPCConvertValues(strMethod, strParams);
-		json_spirit::Object reply_obj = CallRPC(strMethod, params, _server, _port); //submit
-		const json_spirit::Value& result_val = find_value(reply_obj, "result");
-		int retval = 0;
-		if (result_val.type() == json_spirit::int_type)
-			retval = result_val.get_int();
-		std::cout << "[WORKER" << _thread_id << "] share submitted -> " << (retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval == 1 ? "BLOCK" : "SHARE") << std::endl;
-	}
+		json_spirit::Object reply_obj = CallRPC(strMethod, params, _server, _port, mapHeaders); //submit
+    if (reply_obj.empty()) {
+        std::cout << "[WORKER" << _thread_id << "] share submission failed" << std::endl;
+    } else {
+      const json_spirit::Value& result_val = find_value(reply_obj, "result");
+      int retval = 0;
+      if (result_val.type() == json_spirit::int_type)
+        retval = result_val.get_int();
+      std::cout << "[WORKER" << _thread_id << "] share submitted -> " << (retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval == 1 ? "BLOCK" : "SHARE") << std::endl;
+	  }
+  }
 private:
 	CBlock* _pblock;
 	std::string _server;
