@@ -212,8 +212,8 @@ static const CRPCCommand vRPCCommands[] =
     { "setgenerate",            &setgenerate,            true,      false },
     { "getsievepercentage",     &getsievepercentage,     true,      false },
     { "setsievepercentage",     &setsievepercentage,     true,      false },
-    { "getroundsievepercentage",&getroundsievepercentage,true,false },
-    { "setroundsievepercentage",&setroundsievepercentage,true,false },
+    { "getsieveextensions",     &getsieveextensions,     true,      false },
+    { "setsieveextensions",     &setsieveextensions,     true,      false },
     { "getprimespersec",        &getprimespersec,        true,      false },
     { "getchainspermin",        &getchainspermin,        true,      false },
     { "getinfo",                &getinfo,                true,      false },
@@ -273,6 +273,7 @@ static const CRPCCommand vRPCCommands[] =
     { "lockunspent",            &lockunspent,            false,     false },
     { "listlockunspent",        &listlockunspent,        false,     false },
     { "listprimerecords",       &listprimerecords,       false,     false },
+    { "listtopprimes",          &listtopprimes,          false,     false },
 };
 
 CRPCTable::CRPCTable()
@@ -1221,7 +1222,7 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "setgenerate"            && n > 0) ConvertTo<bool>(params[0]);
     if (strMethod == "setgenerate"            && n > 1) ConvertTo<boost::int64_t>(params[1]);
     if (strMethod == "setsievepercentage"     && n > 0) ConvertTo<boost::int64_t>(params[0]);
-    if (strMethod == "setroundsievepercentage" && n > 0) ConvertTo<boost::int64_t>(params[0]);
+    if (strMethod == "setsieveextensions"     && n > 0) ConvertTo<boost::int64_t>(params[0]);
     if (strMethod == "sendtoaddress"          && n > 1) ConvertTo<double>(params[1]);
     if (strMethod == "settxfee"               && n > 0) ConvertTo<double>(params[0]);
     if (strMethod == "getreceivedbyaddress"   && n > 1) ConvertTo<boost::int64_t>(params[1]);
@@ -1268,6 +1269,7 @@ Array RPCConvertValues(const std::string &strMethod, const std::vector<std::stri
     if (strMethod == "lockunspent"            && n > 1) ConvertTo<Array>(params[1]);
     if (strMethod == "importprivkey"          && n > 2) ConvertTo<bool>(params[2]);
     if (strMethod == "listprimerecords"       && n > 0) ConvertTo<boost::int64_t>(params[0]);
+    if (strMethod == "listtopprimes"          && n > 0) ConvertTo<boost::int64_t>(params[0]);
 
     return params;
 }

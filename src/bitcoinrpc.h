@@ -151,8 +151,8 @@ extern json_spirit::Value getgenerate(const json_spirit::Array& params, bool fHe
 extern json_spirit::Value setgenerate(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getsievepercentage(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value setsievepercentage(const json_spirit::Array& params, bool fHelp);
-extern json_spirit::Value getroundsievepercentage(const json_spirit::Array& params, bool fHelp);
-extern json_spirit::Value setroundsievepercentage(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value getsieveextensions(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value setsieveextensions(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getprimespersec(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getchainspermin(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value getmininginfo(const json_spirit::Array& params, bool fHelp);
@@ -210,5 +210,6 @@ extern json_spirit::Value getblock(const json_spirit::Array& params, bool fHelp)
 extern json_spirit::Value gettxoutsetinfo(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value gettxout(const json_spirit::Array& params, bool fHelp);
 extern json_spirit::Value listprimerecords(const json_spirit::Array& params, bool fHelp);
+extern json_spirit::Value listtopprimes(const json_spirit::Array& params, bool fHelp);
 
 #endif

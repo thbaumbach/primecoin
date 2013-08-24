@@ -72,35 +72,38 @@ Value setsievepercentage(const Array& params, bool fHelp)
     if (params.size() > 0)
         nPercentage = params[0].get_int();
 
+    nPercentage = std::max(std::min(nPercentage, nMaxSievePercentage), nMinSievePercentage);
+
     nSievePercentage = nPercentage;
     return Value::null;
 }
 
 
-Value getroundsievepercentage(const Array& params, bool fHelp)
+Value getsieveextensions(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
         throw runtime_error(
-            "getroundsievepercentage\n"
-            "Returns the current sieve generation time percentage used by the mining algorithm.");
+            "getsieveextensions\n"
+            "Returns the number of times the sieve is extended.");
 
-    return (boost::int64_t)nRoundSievePercentage;
+    return (boost::int64_t)nSieveExtensions;
 }
 
 
-Value setroundsievepercentage(const Array& params, bool fHelp)
+Value setsieveextensions(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1)
         throw runtime_error(
-            "setroundsievepercentage <roundsievepercentage>\n"
-            "<roundsievepercentage> determines much time should be spent generating the sieve of candidate multipliers.\n"
-            "The round primorial is dynamically adjusted based on this value.");
+            "setsieveextensions <sieveextensions>\n"
+            "<sieveextensions> determines the number of times the sieve will be extended.");
 
-    unsigned int nPercentage = nDefaultRoundSievePercentage;
+    unsigned int nExtensions = (fTestNet) ? nDefaultSieveExtensionsTestnet : nDefaultSieveExtensions;
     if (params.size() > 0)
-        nPercentage = params[0].get_int();
+        nExtensions = params[0].get_int();
 
-    nRoundSievePercentage = nPercentage;
+    nExtensions = std::max(std::min(nExtensions, nMaxSieveExtensions), nMinSieveExtensions);
+
+    nSieveExtensions = nExtensions;
     return Value::null;
 }
 
@@ -147,9 +150,9 @@ Value getmininginfo(const Array& params, bool fHelp)
     obj.push_back(Pair("errors",        GetWarnings("statusbar")));
     obj.push_back(Pair("generate",      GetBoolArg("-gen")));
     obj.push_back(Pair("genproclimit",  (int)GetArg("-genproclimit", -1)));
-    obj.push_back(Pair("roundsievepercentage",(int)nRoundSievePercentage));
     obj.push_back(Pair("primespersec",  getprimespersec(params, false)));
     obj.push_back(Pair("pooledtx",      (uint64_t)mempool.size()));
+    obj.push_back(Pair("sieveextensions",(int)nSieveExtensions));
     obj.push_back(Pair("sievepercentage",(int)nSievePercentage));
     obj.push_back(Pair("sievesize",     (int)nSieveSize));
     obj.push_back(Pair("testnet",       fTestNet));
