@@ -26,7 +26,7 @@ void StartShutdown() {
 * global variables, structs and extern functions
 *********************************/
 
-extern CBlockIndex* pindexBest; //*TODO* use this in master thread
+extern CBlockIndex* pindexBest;
 extern void BitcoinMiner(CWallet *pwallet, CBlockProvider *CBlockProvider);
 extern bool fPrintToConsole;
 extern bool fDebug;
@@ -230,10 +230,10 @@ class CWorkerThread { //worker=miner
 public:
    CWorkerThread(CMasterThreadStub* master, int id) : _working_lock(NULL), _id(id), _master(master), _thread(&CWorkerThread::run, this) { }
    void run() {
-      std::cout << "[WORKER" << _id << "] Hello World!" << std::endl;
+      std::cout << "[WORKER" << _id << "] Hello, World!" << std::endl;
       _master->wait_for_master();
       std::cout << "[WORKER" << _id << "] GoGoGo!" << std::endl;
-	  CBlockProviderGW* bprovider;
+      CBlockProviderGW* bprovider;
       BitcoinMiner(NULL, bprovider = new CBlockProviderGW(GetArg("-poolip", "127.0.0.1"), GetArg("-poolport", "9912"), _id));
       delete bprovider;
       std::cout << "[WORKER" << _id << "] Bye Bye!" << std::endl;
@@ -253,18 +253,32 @@ public:
 	CMasterThread() : CMasterThreadStub() { }
 	void run() {
 	  int num_threads_to_use = GetArg("-genproclimit", 1);
-	  {
-        boost::unique_lock<boost::shared_mutex> lock(_mutex_master);
-        std::cout << "spawning " << num_threads_to_use << " worker thread(s)" << std::endl;
-        for (int i = 0; i < num_threads_to_use; ++i)
-        {
-          CWorkerThread* worker = new CWorkerThread(this, i);
-          worker->work(); //set working lock
-        }
+    std::string longpoll_server;
+    std::string longpoll_port;
+    bool longpoll = false;
+	  { //init-threads block
+      //check longpoll url
+      //
+      //TODO: add global CBlockProvider to CWorkerThread when long polling
+      //otherwise use local CBlockProvider
+      //
+      boost::unique_lock<boost::shared_mutex> lock(_mutex_master);
+      std::cout << "spawning " << num_threads_to_use << " worker thread(s)" << std::endl;
+      for (int i = 0; i < num_threads_to_use; ++i) {
+        CWorkerThread* worker = new CWorkerThread(this, i);
+        worker->work(); //set working lock
       }
-      // WORKER WILL START HERE implicitly by destroying the lock on mutex_master
-      // this part is very tricky, btw there's a minimum chance everything crashs here ;-) good luck
-	  wait_for_workers(); //TODO: replace this by a loop to check for a new block and update pindexBest
+    }
+    // WORKER WILL START HERE implicitly by destroying the lock on mutex_master
+    // this part is "tricky", btw there's a minimal chance everything crashs here ;-) good luck
+    if (longpoll) {
+      std::cout << "using get_work long polling" << std::endl;
+      for (;;) { //check longpoll info and update pindexBest
+      }
+    } else {
+      std::cout << "using get_work direct polling (less efficient, check for long poll support)" << std::endl;
+      wait_for_workers();
+    }
 	}
 	~CMasterThread() { }
 	void wait_for_master() { boost::shared_lock<boost::shared_mutex> lock(_mutex_master); }

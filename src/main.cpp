@@ -4784,10 +4784,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider)
                 break;
             if (nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 10)
                 break;
-            if (pindexPrev != pindexBest || ((block_provider != NULL) && (GetTime() - nStart) > 23))
-				//or every 6 seconds force new block
-				//TODO: effiency -- this should be done by the main thread, not by the miner
-				//change this, so the miner just has to check for pindexPrev != pindexBest
+            if (pindexPrev != pindexBest || ((block_provider != NULL) && (GetTime() - nStart) > 75))
                 break;
             if (fNewBlock) //aka: sieve's done, we need a updated nonce			
             {
