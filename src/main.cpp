@@ -4610,7 +4610,8 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider)
         } else if (pblock == NULL) { //server not reachable?
           MilliSleep(2000);
           continue;
-        }       
+        } else
+          printf("GOT NEW WORK\n");
 
         if (fDebug && GetBoolArg("-printmining"))
             printf("Running PrimecoinMiner with %"PRIszu" transactions in block (%u bytes)\n", pblock->vtx.size(),
