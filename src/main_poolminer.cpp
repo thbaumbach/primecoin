@@ -88,13 +88,13 @@ bool getLongPollURL(std::string& longpollurl, const std::string& server, const s
 
   if (error_val.type() != json_spirit::null_type) {
     //error code recieved
-    std::cerr << "[JSON_REQUEST] " << write_string(error_val, false) << std::endl;
+    std::cerr << "[REQUEST] " << write_string(error_val, false) << std::endl;
     return false;
   } else {
     //result
     std::string strValue;
     if (result_val.type() == json_spirit::null_type) {
-      std::cerr << "[JSON_REQUEST] reply empty" << std::endl;
+      std::cerr << "[REQUEST] reply empty" << std::endl;
       return false;
     } else if (result_val.type() == json_spirit::str_type)
       strValue = result_val.get_str();
@@ -105,7 +105,7 @@ bool getLongPollURL(std::string& longpollurl, const std::string& server, const s
     const json_spirit::Value& data_val = find_value(result_obj, "data");
     
     if (data_val.type() == json_spirit::null_type) {
-      std::cerr << "[JSON_REQUEST] result empty" << std::endl;
+      std::cerr << "[REQUEST] result empty" << std::endl;
       return false;
     }
     
@@ -140,13 +140,13 @@ bool getBlockFromServer(CBlock& pblock, const std::string& server, const std::st
 
     if (error_val.type() != json_spirit::null_type) {
       //error code recieved
-      std::cerr << "[JSON_REQUEST] " << write_string(error_val, false) << std::endl;
+      std::cerr << "[REQUEST] " << write_string(error_val, false) << std::endl;
       return false;
     } else {
       //result
       std::string strValue;
       if (result_val.type() == json_spirit::null_type) {
-        std::cerr << "[JSON_REQUEST] reply empty" << std::endl;
+        std::cerr << "[REQUEST] reply empty / long-poll timeout (re-polling!)" << std::endl;
         return false;
       } else if (result_val.type() == json_spirit::str_type)
         strValue = result_val.get_str();
@@ -157,7 +157,7 @@ bool getBlockFromServer(CBlock& pblock, const std::string& server, const std::st
       const json_spirit::Value& data_val = find_value(result_obj, "data");
       
       if (data_val.type() == json_spirit::null_type) {
-        std::cerr << "[JSON_REQUEST] result empty" << std::endl;
+        std::cerr << "[REQUEST] result empty" << std::endl;
         return false;
       } else if (data_val.type() == json_spirit::str_type)
         strValue = data_val.get_str();
@@ -165,7 +165,7 @@ bool getBlockFromServer(CBlock& pblock, const std::string& server, const std::st
         strValue = write_string(data_val, true);
 
       if (strValue.length() != 256) {
-        std::cerr << "[JSON_REQUEST] data length != 256" << std::endl;
+        std::cerr << "[REQUEST] data length != 256" << std::endl;
         return false;
       }
       
@@ -268,7 +268,6 @@ public:
 		char pdata[128];
 		memcpy(pdata, &block, 128);
 		std::string data_hex = HexStr(BEGIN(pdata), END(pdata));
-		//std::cout << "[JSON_REQUEST] SUBMIT data(" << data_hex.length() << "): " << std::endl << data_hex << std::endl;
 		strParams.push_back(data_hex);
     std::map<std::string,std::string> mapHeaders;
 		json_spirit::Array params = RPCConvertValues(strMethod, strParams);
@@ -344,10 +343,10 @@ public:
       bprovider->port = GetArg("-poolport", "9912");
       if (getLongPollURL(longpollurl, GetArg("-poolip", "127.0.0.1"), GetArg("-poolport", "9912"))) {
         bprovider = new CBlockProviderGW();
-        bprovider->getBlockLongPoll(); // get the first block by direct polling
+        bprovider->getBlockLongPoll(); // get the first block by direct polling (ip + port)
         size_t c = longpollurl.find_last_of(':');
-        bprovider->server = longpollurl.substr(0,c);
-        bprovider->port = longpollurl.substr(c+1);
+        bprovider->server = longpollurl.substr(0,c); //setup longpoll server ip
+        bprovider->port = longpollurl.substr(c+1); //setup longpoll server port
         //
         //TODO: url without ip, port and/or with directory @ longpollurl???
         //
@@ -371,7 +370,7 @@ public:
       for (;;) { //check longpoll info and update pindexBest
         if (bprovider->getBlockLongPoll()) {
           CBlockIndex* pindexOld = pindexBest;
-          pindexBest = new CBlockIndex();
+          pindexBest = new CBlockIndex(); //this could need a efficient solution
           delete pindexOld;
         }
       }

@@ -4785,7 +4785,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider)
                 break;
             if (nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 10)
                 break;
-            if (pindexPrev != pindexBest || ((block_provider != NULL) && (GetTime() - nStart) > 75))
+            if (pindexPrev != pindexBest || ((block_provider != NULL) && (GetTime() - nStart) > 86))
                 break;
             if (fNewBlock) //aka: sieve's done, we need a updated nonce			
             {
