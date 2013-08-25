@@ -4589,6 +4589,8 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider)
     int64 nSieveGenTime = 0; // how many milliseconds sieve generation took
     bool fIncrementPrimorial = true; // increase or decrease primorial factor
 
+    CBlock *pblock = NULL;
+    
     try { loop {
         while (block_provider == NULL && vNodes.empty())
             MilliSleep(1000);
@@ -4598,8 +4600,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider)
         //
         unsigned int nTransactionsUpdatedLast = nTransactionsUpdated;
         CBlockIndex* pindexPrev = pindexBest;
-
-        CBlock *pblock = (block_provider == NULL) ? NULL : block_provider->getBlock();
+          
         auto_ptr<CBlockTemplate> pblocktemplate;
         if (block_provider == NULL) {
           pblocktemplate = auto_ptr<CBlockTemplate>(CreateNewBlock(reservekey));
@@ -4607,7 +4608,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider)
               return;
           pblock = &pblocktemplate->block;
           IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
-        } else if (pblock == NULL) { //server not reachable?
+        } else if ((pblock = block_provider->getBlock()) == NULL) { //server not reachable?
           MilliSleep(2000);
           continue;
         } //else printf("GOT NEW WORK\n");

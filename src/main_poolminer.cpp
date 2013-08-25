@@ -320,7 +320,7 @@ public:
       std::cout << "[WORKER" << _id << "] Bye Bye!" << std::endl;
    }
    void work() { //called from within master thread
-	   _working_lock = new boost::shared_lock<boost::shared_mutex>(_master->get_working_lock());
+	   _working_lock = new boost::shared_lock<boost::shared_mutex>(_master->get_working_lock()); //TODO: delete?
    }
 private:
    boost::shared_lock<boost::shared_mutex>* _working_lock;
@@ -360,7 +360,7 @@ public:
       boost::unique_lock<boost::shared_mutex> lock(_mutex_master);
       std::cout << "spawning " << num_threads_to_use << " worker thread(s)" << std::endl;
       for (int i = 0; i < num_threads_to_use; ++i) {
-        CWorkerThread* worker = new CWorkerThread(this, i, bprovider);
+        CWorkerThread* worker = new CWorkerThread(this, i, bprovider); //delete on exit?
         worker->work(); //set working lock
       }
     }
@@ -412,7 +412,7 @@ int main (int argc, char** argv)
   GeneratePrimeTable();
   
   //ok, start mining:
-  CMasterThread* mt = new CMasterThread(); //<- the magic is in there
+  CMasterThread* mt = new CMasterThread(); //<- the magic is in there, btw. delete?
   mt->run();
 
   //end:
