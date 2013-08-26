@@ -16,13 +16,14 @@
 /**************/
 
 static const unsigned int POOL_SHARE_MINIMUM = 6;
+static unsigned int thread_num_max = 1;
 
 class CBlockProvider {
 public:
 	CBlockProvider() { }
 	~CBlockProvider() { }
-	virtual CBlock* getBlock() = 0;
-	virtual void submitBlock(CBlock* block) = 0;
+	virtual CBlock* getBlock(unsigned int thread_id) = 0;
+	static void submitBlock(CBlock* block);
 };
 
 /**********************/

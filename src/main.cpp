@@ -4567,14 +4567,14 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
 
 #include "json/json_spirit_value.h"
 
-void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider);
+void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int thread_id);
 
 void BitcoinMinerWallet(CWallet *pwallet)
 {
-  BitcoinMiner(pwallet, NULL);
+  BitcoinMiner(pwallet, NULL, 0);
 }
 
-void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider)
+void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int thread_id)
 {
     printf("PrimecoinMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
@@ -4608,10 +4608,10 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider)
               return;
           pblock = &pblocktemplate->block;
           IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
-        } else if ((pblock = block_provider->getBlock()) == NULL) { //server not reachable?
+        } else if ((pblock = block_provider->getBlock(thread_id)) == NULL) { //server not reachable?
           MilliSleep(2000);
           continue;
-        } //else printf("GOT NEW WORK\n");
+        } //else GOT_WORK_WOOHOO! 
 
         if (fDebug && GetBoolArg("-printmining"))
             printf("Running PrimecoinMiner with %"PRIszu" transactions in block (%u bytes)\n", pblock->vtx.size(),
@@ -4785,7 +4785,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider)
                 break;
             if (nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 10)
                 break;
-            if (pindexPrev != pindexBest || ((block_provider != NULL) && (GetTime() - nStart) > 86))
+            if (pindexPrev != pindexBest || ((block_provider != NULL) && (GetTime() - nStart) > 99))
                 break;
             if (fNewBlock) //aka: sieve's done, we need a updated nonce			
             {
