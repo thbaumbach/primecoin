@@ -246,21 +246,19 @@ public:
 
   virtual CBlock* getBlock(unsigned int thread_id) {
     if (_longpoll) {
-      CBlock* block = NULL;
-      {
-        boost::unique_lock<boost::shared_mutex> lock(_mutex_getwork);
-        block = new CBlock((_pblock+thread_id)->GetBlockHeader());
-      }
+      boost::unique_lock<boost::shared_mutex> lock(_mutex_getwork);
+	  CBlock* block = NULL;
+      block = new CBlock((_pblock+thread_id)->GetBlockHeader());
       block->nTime = GetAdjustedTime();
       std::cout << "[WORKER" << thread_id << "] got_work block=" <<
-      block->GetHash().ToString().c_str() << std::endl;
+        block->GetHash().ToString().c_str() << std::endl;
       return block;
     } else {
       if (_pblock != NULL) delete _pblock;
       _pblock = new CBlock();
       if (!getBlockFromServer(*_pblock, server, port)) return NULL;
       std::cout << "[WORKER" << thread_id << "] got_work block=" <<
-      _pblock->GetHash().ToString().c_str() << std::endl;
+        _pblock->GetHash().ToString().c_str() << std::endl;
       return _pblock;
     }
     return NULL;

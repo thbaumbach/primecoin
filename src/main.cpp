@@ -4590,6 +4590,8 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
     bool fIncrementPrimorial = true; // increase or decrease primorial factor
 
     CBlock *pblock = NULL;
+	uint256 old_hash;
+	unsigned int old_nonce = 0;
     
     try { loop {
         while (block_provider == NULL && vNodes.empty())
@@ -4611,7 +4613,19 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
         } else if ((pblock = block_provider->getBlock(thread_id)) == NULL) { //server not reachable?
           MilliSleep(2000);
           continue;
-        } //else GOT_WORK_WOOHOO! 
+        } else if (old_hash == pblock->GetHeaderHash()) {
+          if (old_nonce >= 0xffff0000) {
+		    MilliSleep(50);
+			//TODO: FORCE a new getblock!
+			if (fDebug && GetBoolArg("-printmining"))
+				printf("Nothing to do --- uh ih uh ah ah bing bang!!\n");
+            continue;
+		  } else
+		    pblock->nNonce = old_nonce;
+        } else {
+            old_hash = pblock->GetHeaderHash();
+			old_nonce = 0;
+        }
 
         if (fDebug && GetBoolArg("-printmining"))
             printf("Running PrimecoinMiner with %"PRIszu" transactions in block (%u bytes)\n", pblock->vtx.size(),
@@ -4652,8 +4666,10 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
             // Use the hash that passed the tests
             break;
         }
-        if (pblock->nNonce >= 0xffff0000)
+        if (pblock->nNonce >= 0xffff0000) {
+			old_nonce = 0xffff0000;
             continue;
+		}
         // Primecoin: primorial fixed multiplier
         mpz_class mpzPrimorial;
         unsigned int nRoundTests = 0;
@@ -4692,6 +4708,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
 				else
 					block_provider->submitBlock(pblock);
                 SetThreadPriority(THREAD_PRIORITY_LOWEST);
+				old_nonce = pblock->nNonce + 1;
                 break;
             }
             
@@ -4776,6 +4793,8 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
                     }
                 }
             }
+			
+			old_nonce = pblock->nNonce;
 
             // Check for stop or if block needs to be rebuilt
             boost::this_thread::interruption_point();
