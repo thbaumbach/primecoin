@@ -10,6 +10,9 @@
 #include "json/json_spirit_value.h"
 #include <boost/thread.hpp>
 
+#define VERSION_MAJOR 0
+#define VERSION_MINOR 1
+
 // <START> be compatible to original code (not actually used!)
 #include "txdb.h"
 #include "walletdb.h"
@@ -127,11 +130,6 @@ bool getLongPollURL(std::string      & longpollurl,
       std::cerr << "[REQUEST] result empty" << std::endl;
       return false;
     }
-
-    // for (std::map<std::string,std::string>::iterator it = mapHeaders.begin();
-    //     it != mapHeaders.end(); it++)
-    //  std::cout << "HEADER: " << it->first << " -> " << it->second <<
-    // std::endl;
 
     std::map<std::string, std::string>::iterator it = mapHeaders.find(
       "x-long-polling");
@@ -387,15 +385,14 @@ public:
     _master->wait_for_master();
     std::cout << "[WORKER" << _id << "] GoGoGo!" << std::endl;
 
-    if (_bprovider == NULL) _bprovider = new CBlockProviderGW();  // TODO:
-                                                                     // delete
+    if (_bprovider == NULL) _bprovider = new CBlockProviderGW();  // TODO: delete
     BitcoinMiner(NULL, _bprovider, _id);
     std::cout << "[WORKER" << _id << "] Bye Bye!" << std::endl;
   }
 
   void work() {                     // called from within master thread
     _working_lock = new boost::shared_lock<boost::shared_mutex>(
-      _master->get_working_lock()); // TODO: delete?
+    _master->get_working_lock()); // TODO: delete?
   }
 
 private:
@@ -501,6 +498,13 @@ private:
 *********************************/
 int main(int argc, char **argv)
 {
+  std::cout << "********************************************" << std::endl;
+  std::cout << "*** Primeminer - Primecoin Pool Miner v" << VERSION_MAJOR << "." << VERSION_MINOR << std::endl;
+  std::cout << "*** by xolokram/TB" << std::endl;
+  std::cout << "***" << std::endl;
+  std::cout << "*** thx to Sunny King & mikaelh" << std::endl;
+  std::cout << "********************************************" << std::endl;
+
   if (argc < 2)
   {
     std::cerr << "usage: " << argv[0] <<
@@ -522,8 +526,7 @@ int main(int argc, char **argv)
   GeneratePrimeTable();
 
   // ok, start mining:
-  CMasterThread *mt = new CMasterThread(); // <- the magic is in there, btw.
-                                           // delete?
+  CMasterThread *mt = new CMasterThread();
   mt->run();
 
   // end:
