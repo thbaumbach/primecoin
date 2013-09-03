@@ -1,25 +1,18 @@
-Primecoin High Performance Version
-==================================
+Primecoin High Performance Version (Pool Edition)
+================================================
 
 This is a pool mining version
-
-
-
 based on mikaelh's high performance version of Sunny King's Primecoin tree.
 
 Features:
- * Use GMP for bignum calculations in the mining threads
- * Replaced some bignum calculations with 64-bit arithmetic inside the sieve
- * Reduced the amount of memory allocations
- * L1 and L2 cache optimizations
- * Process only 10% of base primes when weaving the sieve
- * Configurable sieve size
+- pool mining client
+- getwork-protocol (with longpoll-support)
+- code integration into original client
 
-Donations are welcome if you want to support my work.
 
-BTC: 1EaHwHBWeoJtSM2jEdx9Su1NcKvdXbsqxX
-LTC: LPD1zDChmqcqKGHFHuLX2JWMMEC5jD5J4j
-XPM: AJHjbkVzHhHugd5bpKDtddVDfhtEB8jQZ4
+
+
+See forked project for more information.
 
 Primecoin integration/staging tree
 ==================================

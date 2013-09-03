@@ -504,7 +504,7 @@ int main(int argc, char **argv)
 {
   std::cout << "********************************************" << std::endl;
   std::cout << "*** Primeminer - Primecoin Pool Miner v" << VERSION_MAJOR << "." << VERSION_MINOR << std::endl;
-  std::cout << "*** by xolokram/TB" << std::endl;
+  std::cout << "*** by xolokram/TB - www.beeeeer.org" << std::endl;
   std::cout << "***" << std::endl;
   std::cout << "*** thx to Sunny King & mikaelh" << std::endl;
   std::cout << "********************************************" << std::endl;
