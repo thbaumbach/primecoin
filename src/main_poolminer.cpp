@@ -1,3 +1,7 @@
+//===
+// by xolokram/TB
+// 2013
+//===
 
 #include <iostream>
 #include <fstream>

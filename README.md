@@ -1,7 +1,11 @@
 Primecoin High Performance Version
 ==================================
 
-This is the high performance version of Sunny King's Primecoin tree.
+This is a pool mining version
+
+
+
+based on mikaelh's high performance version of Sunny King's Primecoin tree.
 
 Features:
  * Use GMP for bignum calculations in the mining threads
