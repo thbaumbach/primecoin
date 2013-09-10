@@ -425,7 +425,7 @@ public:
     *(msg->data()+29) = thread_num_max;
 	_con.write_tcp(msg);
 	
-	boost::this_thread::sleep(boost::posix_time::milliseconds(5000));
+	boost::this_thread::sleep(boost::posix_time::seconds(30));
 	
 	return;
 	
