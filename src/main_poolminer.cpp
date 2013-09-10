@@ -15,7 +15,9 @@
 #include <boost/thread.hpp>
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 1
+#define VERSION_MINOR 2
+
+#include "primeminer_conx.hpp"
 
 // <START> be compatible to original code (not actually used!)
 #include "txdb.h"
@@ -497,6 +499,15 @@ private:
   boost::shared_mutex _mutex_working;
 };
 
+class CWorld : public CWorldStub
+{
+public:
+  void process_message(message_ptr& msg) {
+    std::cout << "received via TCP " << msg << std::endl;
+  }
+};
+
+
 /*********************************
 * main - this is where it begins
 *********************************/
@@ -530,9 +541,20 @@ int main(int argc, char **argv)
   GeneratePrimeTable();
 
   // ok, start mining:
-  CMasterThread *mt = new CMasterThread();
-  mt->run();
+  //CMasterThread *mt = new CMasterThread();
+  //mt->run();
+  
+  CWorld* world = new CWorld();  
+  boost::asio::io_service io_service;
+  boost::asio::ip::tcp::resolver resolver(io_service); //resolve dns
+  boost::asio::ip::tcp::resolver::query query(GetArg("-poolip", "127.0.0.1"), GetArg("-poolport", "1337"));
+  boost::asio::ip::tcp::resolver::iterator endpoint = resolver.resolve(query);
+  
+  CClientConnection c(world, io_service, endpoint);
 
+  boost::thread t(boost::bind(&boost::asio::io_service::run, &io_service));
+  t.join();
+  
   // end:
   return EXIT_SUCCESS;
 }
@@ -540,3 +562,29 @@ int main(int argc, char **argv)
 /*********************************
 * and this is where it ends
 *********************************/
+
+std::ostream& operator<<( std::ostream& s, message& m ) {
+   message_type t = m.type();
+   s << "[[T=" << t << ",ID=" << (int)m.source_id() << ",S=" << (int)m.snapshot() << ",L=" << m.length_body() << "], '";
+   s.write(m.body(), m.length_body());
+   s << "']";
+   return s;
+}
+
+std::ostream& operator<<( std::ostream& s, message_type& t ) {
+   s << "<";
+   switch (t) {
+      case MSG_UNDEFINED: s << "UNDEFINED"; break;
+      case MSG_HELLO: s << "HELLO"; break;
+      case MSG_WELCOME: s << "WELCOME"; break;
+      case MSG_JOIN: s << "JOIN"; break;
+      case MSG_QUIT: s << "QUIT"; break;
+      case MSG_SNAPSHOT: s << "SNAPSHOT"; break;
+      case MSG_DATA: s << "DATA"; break;
+      case MSG_PING: s << "PING"; break;
+      case MSG_PONG: s << "PONG"; break;      
+      default: s << "UNKNOWN"; break;
+   }
+   s << ">";
+	return s;
+}
