@@ -7,7 +7,49 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/asio.hpp>
 
-#include "primeminer_conx_msg.hpp"
+size_t num_of_threads = 0;
+#define MSG_GETWORK_LENGTH 128 //#bytes
+
+class message
+{
+public:
+	message(size_t length_in, const char* data_in = NULL) : _data(NULL) {
+		body_reset(length_in);
+		if (length_in > 0 && data_in != NULL)
+			memcpy(data(), data_in, length_in);
+	}
+
+	message(message& other) : _data(NULL) {
+		body_reset(other.length());
+		if (length() > 0)
+			memcpy(data(), other.data(), length());
+	}
+
+   ~message() { delete[] _data; }
+   
+   size_t length() { return _length; }
+   size_t length_header() { return 1; } //1 byte header   
+   size_t length_body() { return (_data[0] == 0) ? (num_of_threads * MSG_GETWORK_LENGTH) : 2; }
+   
+   char* body() { return _data+1; }
+   char* data() { return _data; }   
+
+	void body_reset(size_t length_new) {
+		if (_data != NULL) delete[] _data;
+		if (length_new > 0)
+			_data = new char[length_new];
+		else
+			_data = NULL;
+		_length = length_new;
+	}
+
+private:
+	size_t _length;
+	char* _data;
+};
+
+typedef boost::shared_ptr<message> message_ptr;
+typedef std::deque<message_ptr> message_queue;
 
 enum tcp_connection_state {
    CS_TCP_UNDEFINED = 100,
@@ -17,17 +59,22 @@ enum tcp_connection_state {
 
 using boost::asio::ip::tcp;
 
-class CWorldStub
+class CNotifyStub
 {
 public:
+  CNotifyStub();
+  CNotifyStub(int num_threads_in) : num_threads_(num_threads_in) { }
+  virtual int num_threads() { return num_threads_; }
   virtual void process_message(message_ptr& msg) = 0;
+protected:
+  int num_threads_;
 };
 
 class CClientConnection
 {
 public:
-   CClientConnection(CWorldStub* world, boost::asio::io_service& io_service, tcp::resolver::iterator& endpoint)
-	  : world_(world), io_service_(io_service), socket_tcp_(io_service), read_msg_tcp_(MSG_UNDEFINED, 0, 0, 0), state_tcp_(CS_TCP_UNDEFINED)
+   CClientConnection(CNotifyStub* notifier, boost::asio::io_service& io_service, tcp::resolver::iterator& endpoint)
+	  : _notifier(notifier), io_service_(io_service), socket_tcp_(io_service), read_msg_tcp_(1), state_tcp_(CS_TCP_UNDEFINED)
    {
       socket_tcp_.async_connect(*endpoint,
         boost::bind(&CClientConnection::tcp_handle_connect, this,
@@ -65,7 +112,8 @@ private:
 
          //message_ptr msg(new message(MSG_HELLO, 0, 0, config.getOptionString("name").size(), config.getOptionString("name").data()));
          //write_tcp(msg); //TODO
-      }
+      } else
+        std::cout << "error @ tcp_handle_connect" << std::endl;
    }
 
    void tcp_handle_read_header(const boost::system::error_code& error)
@@ -87,8 +135,11 @@ private:
                   boost::asio::placeholders::error));
          }
       }
-      else if (error != boost::asio::error::operation_aborted)
+      else if (error != boost::asio::error::operation_aborted) {
+		 std::cout << "operation_aborted @ tcp_handle_read_header" << std::endl;
          do_close();
+      } else
+        std::cout << "error @ tcp_handle_read_header" << std::endl;
    }
 
    void tcp_handle_read_body(const boost::system::error_code& error)
@@ -97,7 +148,7 @@ private:
          return;
       if (!error) {
          message_ptr copy(new message(read_msg_tcp_));
-         world_->process_message(copy);
+         _notifier->process_message(copy);
 
          boost::asio::async_read(socket_tcp_,
             boost::asio::buffer(read_msg_tcp_.data(), read_msg_tcp_.length_header()),
@@ -105,39 +156,48 @@ private:
             boost::bind(&CClientConnection::tcp_handle_read_header, this,
                boost::asio::placeholders::error));
       }
-      else if (error != boost::asio::error::operation_aborted)
+      else if (error != boost::asio::error::operation_aborted) {
+		 std::cout << "operation_aborted @ tcp_handle_read_body" << std::endl;
          do_close();
+	  } else
+	   std::cout << "error @ tcp_handle_read_body" << std::endl;
    }
 
    void tcp_write(message_ptr msg)
    {
-      if (state_tcp_ != CS_TCP_OPEN)
+      if (state_tcp_ != CS_TCP_OPEN) {
+		 std::cout << "!CS_TCP_OPEN @ tcp_write" << std::endl;
          return;
+	  }
       bool write_in_progress = !write_msgs_tcp_.empty();
       write_msgs_tcp_.push_back(msg); //TODO: threadsafe?
       if (!write_in_progress)
          boost::asio::async_write(socket_tcp_,
             boost::asio::buffer(write_msgs_tcp_.front()->data(),
-               write_msgs_tcp_.front()->length_data()),
+               write_msgs_tcp_.front()->length()),
             boost::bind(&CClientConnection::tcp_handle_write, this,
                boost::asio::placeholders::error));
    }
 
    void tcp_handle_write(const boost::system::error_code& error)
    {
-      if (state_tcp_ != CS_TCP_OPEN)
+      if (state_tcp_ != CS_TCP_OPEN) {
+		 std::cout << "!CS_TCP_OPEN @ tcp_handle_write" << std::endl;
          return;
+	  }
       if (!error) {
-         std::cout << "sent via TCP " << *(write_msgs_tcp_.front()) << std::endl;
+         //std::cout << "sent via TCP " << *(write_msgs_tcp_.front()) << std::endl;
          write_msgs_tcp_.pop_front();
          if (!write_msgs_tcp_.empty())
             boost::asio::async_write(socket_tcp_,
                boost::asio::buffer(write_msgs_tcp_.front()->data(),
-                  write_msgs_tcp_.front()->length_data()),
+                  write_msgs_tcp_.front()->length()),
                boost::bind(&CClientConnection::tcp_handle_write, this,
                   boost::asio::placeholders::error));
-      } else
+      } else {
+		 std::cout << "error @ tcp_handle_write" << std::endl;
          do_close();
+      }
    }
 
    void do_close() {
@@ -149,7 +209,7 @@ private:
       if (state_tcp_ == CS_TCP_CLOSING)
          return;
       state_tcp_ = CS_TCP_CLOSING;
-      std::cout << "closing TCP connection: "; std::cout.flush();
+      std::cout << "closing TCP connection: " << std::endl;
       try {
          if (socket_tcp_.is_open()) {
             boost::system::error_code error;
@@ -164,8 +224,8 @@ private:
    }
 
 private:
-   //world & service
-   CWorldStub* world_;
+   //notifier & service
+   CNotifyStub* _notifier;
    boost::asio::io_service& io_service_;
    //sockets
    tcp::socket socket_tcp_;
