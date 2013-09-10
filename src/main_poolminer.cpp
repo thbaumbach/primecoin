@@ -13,11 +13,13 @@
 #include "bitcoinrpc.h"
 #include "json/json_spirit_value.h"
 #include <boost/thread.hpp>
+#include <boost/asio.hpp>
 
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 2
 
-#include "primeminer_conx.hpp"
+using boost::asio::ip::tcp;
+//#include "primeminer_conx.hpp"
 
 // <START> be compatible to original code (not actually used!)
 #include "txdb.h"
@@ -59,279 +61,106 @@ struct blockHeader_t {
   unsigned int  nBits;               // 72+4
   unsigned int  nNonce;              // 76+4
   unsigned char primemultiplier[48]; // 80+48
-};                                   // =128 bytes header (80 default + 48
-                                     // primemultiplier)
+};                                   // =128 bytes header (80 default + 48 primemultiplier)
 
 size_t thread_num_max;
+boost::asio::ip::tcp::socket* socket_to_server;
 
 /*********************************
 * helping functions
 *********************************/
-unsigned int getHexDigitValue(unsigned char c) {
-  if ((c >= '0') && (c <= '9')) return c - '0';
-  else if ((c >= 'a') && (c <= 'f')) return c - 'a' + 10;
-  else if ((c >= 'A') && (c <= 'F')) return c - 'A' + 10;
 
-  return 0;
+void exit_handler() {
+  std::cout << "cleanup!" << std::endl;
+  if (socket_to_server != NULL) socket_to_server->close();
 }
 
-void parseHexString(const char    *hexString,
-                    unsigned int   length,
-                    unsigned char *output) {
-  unsigned int lengthBytes = length / 2;
-
-  for (unsigned int i = 0; i < lengthBytes; ++i) {
-    // high digit
-    unsigned int d1 = getHexDigitValue(hexString[i * 2 + 0]);
-
-    // low digit
-    unsigned int d2 = getHexDigitValue(hexString[i * 2 + 1]);
-
-    // build byte
-    output[i] = (unsigned char)((d1 << 4) | (d2));
-  }
-}
-
-/*********************************
-* GET_WORK from server and convert to mineable block
-*********************************/
-bool getLongPollURL(std::string      & longpollurl,
-                    const std::string& server,
-                    const std::string& port) {
-  // JSON GETWORK
-  std::string strMethod = "getwork";
-
-  std::vector<std::string> strParams;
-  json_spirit::Array params = RPCConvertValues(strMethod, strParams);
-  std::map<std::string, std::string> mapHeaders;
-  json_spirit::Object reply_obj = CallRPC(strMethod,
-                                          params,
-                                          server,
-                                          port,
-                                          mapHeaders); // request
-
-  // parse reply
-  const json_spirit::Value& result_val = find_value(reply_obj, "result");
-  const json_spirit::Value& error_val  = find_value(reply_obj, "error");
-
-  if (error_val.type() != json_spirit::null_type) {
-    // error code recieved
-    std::cerr << "[REQUEST] " << write_string(error_val, false) << std::endl;
-    return false;
-  } else {
-    // result
-    std::string strValue;
-
-    if (result_val.type() == json_spirit::null_type) {
-      std::cerr << "[REQUEST] reply empty" << std::endl;
-      return false;
-    } else if (result_val.type() == json_spirit::str_type) strValue =
-        result_val.get_str();
-    else strValue = write_string(result_val, true);
-
-    const json_spirit::Object& result_obj = result_val.get_obj();
-    const json_spirit::Value & data_val   = find_value(result_obj, "data");
-
-    if (data_val.type() == json_spirit::null_type) {
-      std::cerr << "[REQUEST] result empty" << std::endl;
-      return false;
-    }
-
-    std::map<std::string, std::string>::iterator it = mapHeaders.find(
-      "x-long-polling");
-
-    if (it == mapHeaders.end()) {
-      std::cout << "long polling header -NOT- found" << std::endl;
-      return false;
-    } else {
-      std::cout << "long polling header found" << std::endl;
-      longpollurl = it->second;
-    }
-  }
-  return true;
-}
-
-bool getBlockFromServer(CBlock           & pblock,
-                        const std::string& server,
-                        const std::string& port) {
-  unsigned char localBlockData[128];
-
-  { // JSON GETWORK
-    std::string strMethod = "getwork";
-    std::vector<std::string> strParams;
-    json_spirit::Array params = RPCConvertValues(strMethod, strParams);
-    std::map<std::string, std::string> mapHeaders;
-    json_spirit::Object reply_obj = CallRPC(strMethod,
-                                            params,
-                                            server,
-                                            port,
-                                            mapHeaders); // request
-
-    // parse reply
-    const json_spirit::Value& result_val = find_value(reply_obj, "result");
-    const json_spirit::Value& error_val  = find_value(reply_obj, "error");
-
-    if (error_val.type() != json_spirit::null_type) {
-      // error code recieved
-      std::cerr << "[REQUEST] " << write_string(error_val, false) << std::endl;
-      return false;
-    } else {
-      // result
-      std::string strValue;
-
-      if (result_val.type() == json_spirit::null_type) {
-        std::cerr << "[REQUEST] reply empty / long-poll timeout (re-polling!)" <<
-        std::endl;
-        return false;
-      } else if (result_val.type() == json_spirit::str_type) strValue =
-          result_val.get_str();
-      else strValue = write_string(result_val, true);
-
-      const json_spirit::Object& result_obj = result_val.get_obj();
-      const json_spirit::Value & data_val   = find_value(result_obj, "data");
-
-      if (data_val.type() == json_spirit::null_type) {
-        std::cerr << "[REQUEST] result empty" << std::endl;
-        return false;
-      } else if (data_val.type() == json_spirit::str_type) strValue =
-          data_val.get_str();
-      else strValue = write_string(data_val, true);
-
-      if (strValue.length() != 256) {
-        std::cerr << "[REQUEST] data length != 256" << std::endl;
-        return false;
-      }
-
-      parseHexString(strValue.c_str(), 256, localBlockData);
-
-      for (unsigned int i = 0; i < 128 / 4;
-           ++i) ((unsigned int *)localBlockData)[i] =
-          ByteReverse(((unsigned int *)localBlockData)[i]);
-    }
-  }
-
+void convertDataToBlock(unsigned char* blockData, CBlock& block) {
   {
     std::stringstream ss;
-
-    for (int i = 7; i >= 0; --i) ss << std::setw(8) << std::setfill('0') <<
-      std::hex << *((int *)(localBlockData + 4) + i);
+    for (int i = 7; i >= 0; --i)
+		ss << std::setw(8) << std::setfill('0') << std::hex << *((int *)(blockData + 4) + i);
     ss.flush();
-    pblock.hashPrevBlock.SetHex(ss.str().c_str());
+    block.hashPrevBlock.SetHex(ss.str().c_str());
   }
   {
     std::stringstream ss;
-
-    for (int i = 7; i >= 0; --i) ss << std::setw(8) << std::setfill('0') <<
-      std::hex << *((int *)(localBlockData + 36) + i);
+    for (int i = 7; i >= 0; --i)
+		ss << std::setw(8) << std::setfill('0') << std::hex << *((int *)(blockData + 36) + i);
     ss.flush();
-    pblock.hashMerkleRoot.SetHex(ss.str().c_str());
+    block.hashMerkleRoot.SetHex(ss.str().c_str());
   }
-
-  pblock.nVersion               = *((int *)(localBlockData));
-  pblock.nTime                  = *((unsigned int *)(localBlockData + 68));
-  pblock.nBits                  = *((unsigned int *)(localBlockData + 72));
-  pblock.nNonce                 = *((unsigned int *)(localBlockData + 76));
-  pblock.bnPrimeChainMultiplier = 0;
-
-  return true;
+  block.nVersion               = *((int *)(blockData));
+  block.nTime                  = *((unsigned int *)(blockData + 68));
+  block.nBits                  = *((unsigned int *)(blockData + 72));
+  block.nNonce                 = *((unsigned int *)(blockData + 76));
+  block.bnPrimeChainMultiplier = 0;
 }
 
 /*********************************
 * class CBlockProviderGW to (incl. SUBMIT_BLOCK)
 *********************************/
   
-class CBlockProviderGW : public CBlockProvider, public CNotifyStub {
+class CBlockProviderGW : public CBlockProvider {
 public:
 
-	CBlockProviderGW() : CBlockProvider(), CNotifyStub(thread_num_max), _pblock(NULL) {}
+	CBlockProviderGW() : CBlockProvider(), _blocks(NULL) {}
 
 	virtual ~CBlockProviderGW() { /* TODO */ }
 
 	virtual CBlock* getBlock(unsigned int thread_id) {
 		boost::unique_lock<boost::shared_mutex> lock(_mutex_getwork);
-		if (_pblock == NULL) return NULL;
+		if (_blocks == NULL) return NULL;
 		CBlock* block = NULL;
-		block = new CBlock((_pblock+thread_id)->GetBlockHeader());
+		block = new CBlock((_blocks+thread_id)->GetBlockHeader());
 		block->nTime = GetAdjustedTime();
-		std::cout << "[WORKER" << thread_id << "] got_work block=" << block->GetHash().ToString().c_str() << std::endl;
+		//std::cout << "[WORKER" << thread_id << "] got_work block=" << block->GetHash().ToString().c_str() << std::endl;
 		return block;
 	}
-  
-	void process_message(message_ptr& msg) {
-		//TODO: do this in another thread...
-		switch (((unsigned char*)msg->data())[0]) {
-		   case 0: {
-			   std::cout << "got_work: " << msg->length() << std::endl;
-		   } break;
-		   case 1: {
-			   std::cout << "got_result: " << msg->length() << std::endl;
-		   }
-	   }
+	
+	void setBlocksFromData(unsigned char* data) {
+		CBlock* blocks = new CBlock[thread_num_max];
+		for (int i = 0; i < thread_num_max; ++i)
+			convertDataToBlock(data+i*128,blocks[i]);
+		CBlock* old_blocks = NULL;
+		{
+			boost::unique_lock<boost::shared_mutex> lock(_mutex_getwork);
+			old_blocks = _blocks;
+			_blocks = blocks;
+		}
+		if (old_blocks != NULL) delete[] old_blocks;
 	}
 	
-	void submitBlock(CBlock *pblock) {
+	void submitBlock(CBlock *block) {
+		blockHeader_t blockraw;
+		blockraw.nVersion       = block->nVersion;
+		blockraw.hashPrevBlock  = block->hashPrevBlock;
+		blockraw.hashMerkleRoot = block->hashMerkleRoot;
+		blockraw.nTime          = block->nTime;
+		blockraw.nBits          = block->nBits;
+		blockraw.nNonce         = block->nNonce;
+		
+		std::cout << "submit: " << block->hashMerkleRoot.ToString().c_str() << std::endl;
+		
+		std::vector<unsigned char> primemultiplier = block->bnPrimeChainMultiplier.getvch();
+		if (primemultiplier.size() > 47) {
+			std::cerr << "[WORKER] share submission warning: not enough space for primemultiplier" << std::endl;
+			return;
+		}
+		blockraw.primemultiplier[0] = primemultiplier.size();
+		for (size_t i = 0; i < primemultiplier.size(); ++i)
+			blockraw.primemultiplier[1 + i] = primemultiplier[i];
+
+		boost::system::error_code error;
+		socket_to_server->write_some(boost::asio::buffer((unsigned char*)&blockraw, 128));
+		if (error)
+			std::cout << error << " @ write_some_submit" << std::endl;
 	}
 
 protected:
 	boost::shared_mutex _mutex_getwork;
-	CBlock* _pblock;
+	CBlock* _blocks;
 };
-
-/*void CBlockProvider::submitBlock(CBlock *pblock) {
-  std::string strMethod = "getwork";
-
-  std::vector<std::string> strParams;
-
-  // build block data
-  blockHeader_t block;
-  block.nVersion       = pblock->nVersion;
-  block.hashPrevBlock  = pblock->hashPrevBlock;
-  block.hashMerkleRoot = pblock->hashMerkleRoot;
-  block.nTime          = pblock->nTime;
-  block.nBits          = pblock->nBits;
-  block.nNonce         = pblock->nNonce;
-
-  // block.bnPrimeChainMultiplier = pblock->bnPrimeChainMultiplier;
-  std::vector<unsigned char> primemultiplier =
-    pblock->bnPrimeChainMultiplier.getvch();
-
-  if (primemultiplier.size() > 47) {
-    std::cerr <<
-    "[WORKER] share submission warning: not enough space for primemultiplier" <<
-    std::endl;
-    return;
-  }
-  block.primemultiplier[0] = primemultiplier.size();
-
-  for (size_t i = 0; i < primemultiplier.size();
-       ++i) block.primemultiplier[1 + i] = primemultiplier[i];
-
-  // FormatHashBlocks(&block, sizeof(block)); //not used, unnecessary
-  for (unsigned int i = 0; i < 128 / 4; ++i) ((unsigned int *)&block)[i] =
-          ByteReverse(((unsigned int *)&block)[i]);
-  char pdata[128];
-  memcpy(pdata, &block, 128);
-  std::string data_hex = HexStr(BEGIN(pdata), END(pdata));
-  strParams.push_back(data_hex);
-  std::map<std::string, std::string> mapHeaders;
-  json_spirit::Array  params    = RPCConvertValues(strMethod, strParams);
-  json_spirit::Object reply_obj =
-    CallRPC(strMethod, params,
-            GetArg("-poolip", "127.0.0.1"), GetArg("-poolport",
-                                                   "9912"), mapHeaders); // submit
-
-  if (reply_obj.empty()) {
-    std::cout << "[WORKER] share submission failed" << std::endl;
-  } else {
-    const json_spirit::Value& result_val = find_value(reply_obj, "result");
-    int retval                           = 0;
-
-    if (result_val.type() == json_spirit::int_type) retval = result_val.get_int();
-    std::cout << "[WORKER] share submitted -> " <<
-    (retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval ==
-     1 ? "BLOCK" : "SHARE") << std::endl;
-  }
-}*/
 
 /*********************************
 * multi-threading
@@ -353,6 +182,7 @@ public:
 		std::cout << "[WORKER" << _id << "] Hello, World!" << std::endl;
 		_master->wait_for_master();
 		std::cout << "[WORKER" << _id << "] GoGoGo!" << std::endl;
+		boost::this_thread::sleep(boost::posix_time::seconds(2));
 		BitcoinMiner(NULL, _bprovider, _id);
 		std::cout << "[WORKER" << _id << "] Bye Bye!" << std::endl;
 	}
@@ -373,141 +203,119 @@ protected:
 class CMasterThread : public CMasterThreadStub {
 public:
 
-  CMasterThread() : CMasterThreadStub(), _con(NULL) {}
+  CMasterThread(CBlockProviderGW *bprovider) : CMasterThreadStub(), _bprovider(bprovider) {}
 
   void run() {
+  
+	{
+		boost::unique_lock<boost::shared_mutex> lock(_mutex_master);
+		std::cout << "spawning " << thread_num_max << " worker thread(s)" << std::endl;
+
+		for (unsigned int i = 0; i < thread_num_max; ++i) {
+			CWorkerThread *worker = new CWorkerThread(this, i, _bprovider);
+			worker->work();
+		}
+	}
 	
     boost::asio::io_service io_service;
     boost::asio::ip::tcp::resolver resolver(io_service); //resolve dns
     boost::asio::ip::tcp::resolver::query query(GetArg("-poolip", "127.0.0.1"), GetArg("-poolport", "1337"));
     boost::asio::ip::tcp::resolver::iterator endpoint = resolver.resolve(query);
-    
-    CBlockProviderGW *bprovider = new CBlockProviderGW();
-    _con = new CClientConnection(bprovider, io_service, endpoint);
-    boost::thread* con_thr = new boost::thread(boost::bind(&boost::asio::io_service::run, &io_service));
-    
-    boost::this_thread::sleep(boost::posix_time::seconds(1));
-    
-    int wait = 0;
-    while (!_con->is_open()) {
-		boost::this_thread::sleep(boost::posix_time::seconds(1));
-		++wait;
-		if (wait == 10) {
-			_con->close();
-			con_thr->join();
-			delete _con;
-			delete con_thr;
-			_con = new CClientConnection(bprovider, io_service, endpoint);
-			con_thr = new boost::thread(boost::bind(&boost::asio::io_service::run, &io_service));
-			wait = 0;
-		}
-	}
-    
-    boost::this_thread::sleep(boost::posix_time::seconds(1));
-    
-    //say hello to the server
-    std::string username = GetArg("-pooluser", "");
-    message_ptr hello_msg(new message(username.length()+2));    
-    *(hello_msg->data()) = username.length();
-    memcpy(hello_msg->body(), username.c_str(), username.length());
-    *(hello_msg->data()+username.length()+1) = thread_num_max;
-	_con->write_tcp(hello_msg);
+	boost::asio::ip::tcp::resolver::iterator end;
 	
-	boost::this_thread::sleep(boost::posix_time::seconds(1));
-  
-	
-    {
-		boost::unique_lock<boost::shared_mutex> lock(_mutex_master);
-		std::cout << "spawning " << thread_num_max << " worker thread(s)" << std::endl;
-
-		for (unsigned int i = 0; i < thread_num_max; ++i) {
-			CWorkerThread *worker = new CWorkerThread(this, i, bprovider);
-			worker->work();
-		}
-	}
-	
-	//TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	//CBlockIndex *pindexOld = pindexBest;
-    //pindexBest = new CBlockIndex(); // this could need a efficient solution
-	//delete pindexOld;
-    
 	for (;;) {
-		if (!_con->is_open()) {
-			std::cout << "connection not available" << std::endl;
-			break;
+		boost::asio::ip::tcp::socket socket(io_service);
+		boost::system::error_code error_socket = boost::asio::error::host_not_found;
+		while (error_socket && endpoint != end)
+		{
+		  socket.close();
+		  socket.connect(*endpoint++, error_socket);
 		}
-		boost::this_thread::sleep(boost::posix_time::seconds(10));
 		
-		//TODO: reconnect on fail!!
+		if (error_socket) {
+			std::cout << error_socket << std::endl;
+			boost::this_thread::sleep(boost::posix_time::seconds(10));
+			continue;
+		}
+		
+		{ //send hello message
+			std::string username = GetArg("-pooluser", "");
+			char* hello = new char[username.length()+2];
+			memcpy(hello+1, username.c_str(), username.length());
+			*((unsigned char*)hello) = username.length();
+			*((unsigned char*)hello+username.length()+1) = thread_num_max;
+			boost::system::error_code error;
+			socket.write_some(boost::asio::buffer(hello, username.length()+2), error);
+			if (error)
+				std::cout << error << " @ write_some_hello" << std::endl;
+			delete[] hello;
+		}
+		
+		socket_to_server = &socket; //TODO: lock/mutex
+			
+		bool done = false;
+		while (!done) {
+			int type = -1;
+			{ //get the data header
+				unsigned char buf = 0; //get header
+				boost::system::error_code error;
+				size_t len = socket.read_some(boost::asio::buffer(&buf, 1), error);				
+				if (error == boost::asio::error::eof)
+					break; // Connection closed cleanly by peer.
+				else if (error) {
+					std::cout << error << " @ read_some1" << std::endl;
+					break;
+				}					
+				type = buf;
+			}
+			
+			switch (type) {
+				case 0: {
+					unsigned char* buf = new unsigned char[128*thread_num_max]; //get header
+					boost::system::error_code error;
+					size_t len = socket.read_some(boost::asio::buffer(buf, 128*thread_num_max), error);				
+					if (error == boost::asio::error::eof) {
+						done = true;
+						break; // Connection closed cleanly by peer.
+					} else if (error) {
+						std::cout << error << " @ read_some2a" << std::endl;
+						done = true;
+						break;
+					}
+					_bprovider->setBlocksFromData(buf);
+					std::cout << "[MASTER] work received" << std::endl;
+					delete[] buf;
+					
+					CBlockIndex *pindexOld = pindexBest;
+					pindexBest = new CBlockIndex(); //=notify worker (this could need a efficient alternative)
+					delete pindexOld;
+				} break;
+				case 1: {
+					int buf; //get header
+					boost::system::error_code error;
+					size_t len = socket.read_some(boost::asio::buffer(&buf, 4), error);				
+					if (error == boost::asio::error::eof) {
+						done = true;
+						break; // Connection closed cleanly by peer.
+					} else if (error) {
+						std::cout << error << " @ read_some2b" << std::endl;
+						done = true;
+						break;
+					}
+					int retval = buf;
+					std::cout << "[MASTER] submitted share -> " <<
+						(retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval ==
+						1 ? "BLOCK" : "SHARE") << "(" << retval << ")" << std::endl;
+				} break;
+				default: {
+					std::cout << "unknown header type = " << type << std::endl;
+				}
+			}
+		}
+		
+		socket_to_server = NULL; //TODO: lock/mutex
+		boost::this_thread::sleep(boost::posix_time::seconds(10));
 	}
-	
-	_con->close();
-	con_thr->join();
-	delete _con;
-	delete con_thr;
-	
-	return;
-	
-    /*CBlockProviderGW *bprovider = NULL;
-    bool longpoll               = false;
-
-    {
-      std::string longpollurl;
-      bprovider->server = GetArg("-poolip", "127.0.0.1");
-      bprovider->port   = GetArg("-poolport", "9912");
-
-      if (getLongPollURL(longpollurl,
-                         GetArg("-poolip",
-                                "127.0.0.1"), GetArg("-poolport", "9912"))) {
-        bprovider = new CBlockProviderGW();
-        bprovider->getBlockLongPoll();                 // get the first block by
-                                                       // direct polling (ip +
-                                                       // port)
-        size_t c = longpollurl.find_last_of(':');
-        bprovider->server = longpollurl.substr(0, c);  // setup longpoll server
-                                                       // ip
-        bprovider->port   = longpollurl.substr(c + 1); // setup longpoll server
-                                                       // port
-        //
-        // TODO: url without ip, port and/or with directory @ longpollurl???
-        //
-        std::cout << "LONGPOLL-URL: " << bprovider->server << ":" <<
-        bprovider->port << std::endl;
-        longpoll = true;
-      } else {
-        bprovider->server = GetArg("-poolip", "127.0.0.1");
-        bprovider->port   = GetArg("-poolport", "9912");
-      }
-      boost::unique_lock<boost::shared_mutex> lock(_mutex_master);
-      std::cout << "spawning " << thread_num_max << " worker thread(s)" <<
-      std::endl;
-
-      for (unsigned int i = 0; i < thread_num_max; ++i) {
-        CWorkerThread *worker = new CWorkerThread(this, i, bprovider); // delete
-                                                                       // on
-                                                                       // exit?
-        worker->work();                                                // set
-                                                                       // working
-                                                                       // lock
-      }
-    }
-
-    // WORKER WILL START HERE implicitly by destroying the lock on mutex_master
-    // this part is "tricky", btw there's a minimal chance everything crashs
-    // here ;-) good luck
-    if (longpoll) {
-      for (;;) {                          // check longpoll info and update
-                                          // pindexBest
-        if (bprovider->getBlockLongPoll()) {
-          CBlockIndex *pindexOld = pindexBest;
-          pindexBest = new CBlockIndex(); // this could need a efficient
-                                          // solution
-          delete pindexOld;
-        }
-      }
-    } else {
-      wait_for_workers();
-    }*/
   }
 
   ~CMasterThread() {}
@@ -526,7 +334,7 @@ private:
     boost::unique_lock<boost::shared_mutex> lock(_mutex_working);
   }
   
-  CClientConnection* _con;
+  CBlockProviderGW  *_bprovider;
 
   boost::shared_mutex _mutex_master;
   boost::shared_mutex _mutex_working;
@@ -552,9 +360,14 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
   
+  const int atexit_res = std::atexit(exit_handler);
+  if (atexit_res != 0)
+    std::cerr << "atexit registration failed, shutdown will be dirty!" << std::endl;
+  
   // init everything:
   ParseParameters(argc, argv);
   
+  socket_to_server = NULL;
   thread_num_max = GetArg("-genproclimit", 1); // what about boost's 
                                                // hardware_concurrency() ?
   fPrintToConsole = true; // always on
@@ -565,7 +378,8 @@ int main(int argc, char **argv)
   GeneratePrimeTable();
   
   // ok, start mining:
-  CMasterThread *mt = new CMasterThread();
+  CBlockProviderGW* bprovider = new CBlockProviderGW();
+  CMasterThread *mt = new CMasterThread(bprovider);
   mt->run();
   
   // end:

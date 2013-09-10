@@ -97,7 +97,7 @@ public:
    }
 
    bool is_open() {
-      return socket_tcp_.is_open(); // && state_tcp_ == CS_TCP_OPEN;
+      return socket_tcp_.is_open() && state_tcp_ == CS_TCP_OPEN;
    }
 
 private:
