@@ -7,7 +7,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/asio.hpp>
 
-size_t num_of_threads = 0;
+extern size_t thread_num_max;
 #define MSG_GETWORK_LENGTH 128 //#bytes
 
 class message
@@ -20,27 +20,31 @@ public:
 	}
 
 	message(message& other) : _data(NULL) {
-		body_reset(other.length());
-		if (length() > 0)
-			memcpy(data(), other.data(), length());
+		body_reset(other.length_body());
+		data()[0] = other.data()[0]; //copy header
+		if (length_body() > 0)
+			memcpy(data(), other.data(), length_body());
 	}
 
    ~message() { delete[] _data; }
    
    size_t length() { return _length; }
    size_t length_header() { return 1; } //1 byte header   
-   size_t length_body() { return (_data[0] == 0) ? (num_of_threads * MSG_GETWORK_LENGTH) : 2; }
+   size_t length_body() {
+	   switch (((unsigned char*)_data)[0]) {
+		   case 0: return (thread_num_max * MSG_GETWORK_LENGTH);
+		   case 1: return 4;
+	   }
+	   return 0;
+   }
    
    char* body() { return _data+1; }
    char* data() { return _data; }   
 
 	void body_reset(size_t length_new) {
 		if (_data != NULL) delete[] _data;
-		if (length_new > 0)
-			_data = new char[length_new];
-		else
-			_data = NULL;
-		_length = length_new;
+		_data = new char[length_header()+length_new];
+		_length = length_header()+length_new;
 	}
 
 private:
@@ -76,14 +80,14 @@ public:
    CClientConnection(CNotifyStub* notifier, boost::asio::io_service& io_service, tcp::resolver::iterator& endpoint)
 	  : _notifier(notifier), io_service_(io_service), socket_tcp_(io_service), read_msg_tcp_(1), state_tcp_(CS_TCP_UNDEFINED)
    {
-      socket_tcp_.async_connect(*endpoint,
-        boost::bind(&CClientConnection::tcp_handle_connect, this,
-        boost::asio::placeholders::error));
+	   socket_tcp_.async_connect(*endpoint,
+         boost::bind(&CClientConnection::tcp_handle_connect, this,
+         boost::asio::placeholders::error));
    }
 
    ~CClientConnection() {
    }
-
+   
    void write_tcp(message_ptr msg) {
       io_service_.post(boost::bind(&CClientConnection::tcp_write, this, msg));
    }
@@ -93,7 +97,7 @@ public:
    }
 
    bool is_open() {
-      return socket_tcp_.is_open();
+      return socket_tcp_.is_open(); // && state_tcp_ == CS_TCP_OPEN;
    }
 
 private:
@@ -102,11 +106,11 @@ private:
       if (!error) {
          std::cout << "establishing TCP connection to " << socket_tcp_.remote_endpoint().address().to_string() << ":" << socket_tcp_.remote_endpoint().port() << std::endl;
 
-         state_tcp_ = CS_TCP_OPEN;
-
+         state_tcp_ = CS_TCP_OPEN; //before or after async_read(...) ?
+         
          boost::asio::async_read(socket_tcp_,
             boost::asio::buffer(read_msg_tcp_.data(), read_msg_tcp_.length_header()),
-            //boost::asio::transfer_at_least(read_msg_tcp_.length_header()),
+            boost::asio::transfer_exactly(read_msg_tcp_.length_header()),
             boost::bind(&CClientConnection::tcp_handle_read_header, this,
                boost::asio::placeholders::error));
 
@@ -122,18 +126,13 @@ private:
          return;
       if (!error) { //TODO: and check if message is oversized
          int msg_length = read_msg_tcp_.length_body();
+         std::cout << "awaiting " << msg_length << " bytes!" << std::endl;
          read_msg_tcp_.body_reset(msg_length);
-         if (msg_length == 0) {
-            tcp_handle_read_body(error);
-         }
-         else
-         {
-            boost::asio::async_read(socket_tcp_,
-               boost::asio::buffer(read_msg_tcp_.body(), msg_length),
-               //boost::asio::transfer_all(),
-               boost::bind(&CClientConnection::tcp_handle_read_body, this,
-                  boost::asio::placeholders::error));
-         }
+         boost::asio::async_read(socket_tcp_,
+            boost::asio::buffer(read_msg_tcp_.body(), msg_length),
+            boost::asio::transfer_exactly(msg_length),
+            boost::bind(&CClientConnection::tcp_handle_read_body, this,
+               boost::asio::placeholders::error));
       }
       else if (error != boost::asio::error::operation_aborted) {
 		 std::cout << "operation_aborted @ tcp_handle_read_header" << std::endl;
@@ -147,12 +146,13 @@ private:
       if (state_tcp_ != CS_TCP_OPEN)
          return;
       if (!error) {
+		 std::cout << "woohoo!" << std::endl;
          message_ptr copy(new message(read_msg_tcp_));
          _notifier->process_message(copy);
 
          boost::asio::async_read(socket_tcp_,
             boost::asio::buffer(read_msg_tcp_.data(), read_msg_tcp_.length_header()),
-            //boost::asio::transfer_at_least(read_msg_tcp_.length_header()),
+            boost::asio::transfer_exactly(read_msg_tcp_.length_header()),
             boost::bind(&CClientConnection::tcp_handle_read_header, this,
                boost::asio::placeholders::error));
       }

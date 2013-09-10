@@ -62,7 +62,7 @@ struct blockHeader_t {
 };                                   // =128 bytes header (80 default + 48
                                      // primemultiplier)
 
-extern unsigned int thread_num_max;
+size_t thread_num_max;
 
 /*********************************
 * helping functions
@@ -239,76 +239,45 @@ bool getBlockFromServer(CBlock           & pblock,
 /*********************************
 * class CBlockProviderGW to (incl. SUBMIT_BLOCK)
 *********************************/
-
-class CBlockProviderGW : public CBlockProvider {
+  
+class CBlockProviderGW : public CBlockProvider, public CNotifyStub {
 public:
 
-  CBlockProviderGW()
-    : CBlockProvider(), _longpoll(true), _pblock(NULL) {}
+	CBlockProviderGW() : CBlockProvider(), CNotifyStub(thread_num_max), _pblock(NULL) {}
 
-  virtual ~CBlockProviderGW() { /* TODO, who cares */ }
+	virtual ~CBlockProviderGW() { /* TODO */ }
 
-  virtual CBlock* getBlock(unsigned int thread_id) {
-    if (_longpoll) {
-      boost::unique_lock<boost::shared_mutex> lock(_mutex_getwork);
-	  CBlock* block = NULL;
-      block = new CBlock((_pblock+thread_id)->GetBlockHeader());
-      block->nTime = GetAdjustedTime();
-      std::cout << "[WORKER" << thread_id << "] got_work block=" <<
-        block->GetHash().ToString().c_str() << std::endl;
-      return block;
-    } else {
-      if (_pblock != NULL) delete _pblock;
-      _pblock = new CBlock();
-      if (!getBlockFromServer(*_pblock, server, port)) return NULL;
-      std::cout << "[WORKER" << thread_id << "] got_work block=" <<
-        _pblock->GetHash().ToString().c_str() << std::endl;
-      return _pblock;
-    }
-    return NULL;
-  }
+	virtual CBlock* getBlock(unsigned int thread_id) {
+		boost::unique_lock<boost::shared_mutex> lock(_mutex_getwork);
+		if (_pblock == NULL) return NULL;
+		CBlock* block = NULL;
+		block = new CBlock((_pblock+thread_id)->GetBlockHeader());
+		block->nTime = GetAdjustedTime();
+		std::cout << "[WORKER" << thread_id << "] got_work block=" << block->GetHash().ToString().c_str() << std::endl;
+		return block;
+	}
+  
+	void process_message(message_ptr& msg) {
+		//TODO: do this in another thread...
+		switch (((unsigned char*)msg->data())[0]) {
+		   case 0: {
+			   std::cout << "got_work: " << msg->length() << std::endl;
+		   } break;
+		   case 1: {
+			   std::cout << "got_result: " << msg->length() << std::endl;
+		   }
+	   }
+	}
+	
+	void submitBlock(CBlock *pblock) {
+	}
 
-  virtual bool getBlockLongPoll() {
-    CBlock *blocks = new CBlock[thread_num_max];
-    if (getBlockFromServer(*blocks, server, port)) {
-	  //
-	  //EITHER
-	  // get a block for every thread (like here right now!)
-	  // this needs more bandwidth (for the pool)
-	  //OR
-	  // use nTime and nNonce to differ for all threads
-	  // needs some testing: nTime = second-resolution, nNonce enough?
-	  //
-      for (unsigned int i = 1; i < thread_num_max; ++i)
-        getBlockFromServer(*(blocks+i), GetArg("-poolip", "127.0.0.1"),
-                                        GetArg("-poolport", "9912"));
-      boost::unique_lock<boost::shared_mutex> lock(_mutex_getwork);
-      delete[] _pblock;
-      _pblock    = blocks;
-      std::cout << "[MASTER] got_work" << std::endl;
-    } else {
-      delete[] blocks;
-      return false;
-    }
-    return true;
-  }
-
-private:
-
-  boost::shared_mutex _mutex_getwork;
-  bool _longpoll;
-  CBlock* _pblock;
-
-public:
-
-  static std::string server;
-  static std::string port;
+protected:
+	boost::shared_mutex _mutex_getwork;
+	CBlock* _pblock;
 };
 
-std::string CBlockProviderGW::server = ""; //TODO: seperate direct from
-std::string CBlockProviderGW::port   = ""; //longpoll URLs
-
-void CBlockProvider::submitBlock(CBlock *pblock) {
+/*void CBlockProvider::submitBlock(CBlock *pblock) {
   std::string strMethod = "getwork";
 
   std::vector<std::string> strParams;
@@ -362,7 +331,7 @@ void CBlockProvider::submitBlock(CBlock *pblock) {
     (retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval ==
      1 ? "BLOCK" : "SHARE") << std::endl;
   }
-}
+}*/
 
 /*********************************
 * multi-threading
@@ -370,39 +339,30 @@ void CBlockProvider::submitBlock(CBlock *pblock) {
 
 class CMasterThreadStub {
 public:
-
-  virtual void                 wait_for_master()  = 0;
+  virtual void wait_for_master() = 0;
   virtual boost::shared_mutex& get_working_lock() = 0;
 };
 
 class CWorkerThread { // worker=miner
 public:
 
-  CWorkerThread(CMasterThreadStub *master,
-                unsigned int           id,
-                CBlockProviderGW  *bprovider) : _working_lock(NULL), _id(id),
-                                                _master(master),
-                                                _bprovider(bprovider),
-                                                _thread(&CWorkerThread::run,
-                                                        this) {}
+	CWorkerThread(CMasterThreadStub *master, unsigned int id, CBlockProviderGW *bprovider)
+		: _working_lock(NULL), _id(id), _master(master), _bprovider(bprovider), _thread(&CWorkerThread::run, this) { }
 
-  void run() {
-    std::cout << "[WORKER" << _id << "] Hello, World!" << std::endl;
-    _master->wait_for_master();
-    std::cout << "[WORKER" << _id << "] GoGoGo!" << std::endl;
+	void run() {
+		std::cout << "[WORKER" << _id << "] Hello, World!" << std::endl;
+		_master->wait_for_master();
+		std::cout << "[WORKER" << _id << "] GoGoGo!" << std::endl;
+		BitcoinMiner(NULL, _bprovider, _id);
+		std::cout << "[WORKER" << _id << "] Bye Bye!" << std::endl;
+	}
 
-    if (_bprovider == NULL) _bprovider = new CBlockProviderGW();  // TODO: delete
-    BitcoinMiner(NULL, _bprovider, _id);
-    std::cout << "[WORKER" << _id << "] Bye Bye!" << std::endl;
-  }
+	void work() { // called from within master thread
+		_working_lock = new boost::shared_lock<boost::shared_mutex>(
+		_master->get_working_lock());
+	}
 
-  void work() {                     // called from within master thread
-    _working_lock = new boost::shared_lock<boost::shared_mutex>(
-    _master->get_working_lock()); // TODO: delete?
-  }
-
-private:
-
+protected:
   boost::shared_lock<boost::shared_mutex> *_working_lock;
   unsigned int _id;
   CMasterThreadStub *_master;
@@ -413,23 +373,82 @@ private:
 class CMasterThread : public CMasterThreadStub {
 public:
 
-  CMasterThread(CClientConnection& con) : CMasterThreadStub(), _con(con) {}
+  CMasterThread() : CMasterThreadStub(), _con(NULL) {}
 
   void run() {
-	  
-	boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
-    
-    message_ptr msg(new message(30));
-    *(msg->data()) = 28;
-    memcpy(msg->body(), "abcdefghijklmnopqrstuvwxyz12", 28);
-    *(msg->data()+29) = thread_num_max;
-	_con.write_tcp(msg);
 	
-	boost::this_thread::sleep(boost::posix_time::seconds(30));
+    boost::asio::io_service io_service;
+    boost::asio::ip::tcp::resolver resolver(io_service); //resolve dns
+    boost::asio::ip::tcp::resolver::query query(GetArg("-poolip", "127.0.0.1"), GetArg("-poolport", "1337"));
+    boost::asio::ip::tcp::resolver::iterator endpoint = resolver.resolve(query);
+    
+    CBlockProviderGW *bprovider = new CBlockProviderGW();
+    _con = new CClientConnection(bprovider, io_service, endpoint);
+    boost::thread* con_thr = new boost::thread(boost::bind(&boost::asio::io_service::run, &io_service));
+    
+    boost::this_thread::sleep(boost::posix_time::seconds(1));
+    
+    int wait = 0;
+    while (!_con->is_open()) {
+		boost::this_thread::sleep(boost::posix_time::seconds(1));
+		++wait;
+		if (wait == 10) {
+			_con->close();
+			con_thr->join();
+			delete _con;
+			delete con_thr;
+			_con = new CClientConnection(bprovider, io_service, endpoint);
+			con_thr = new boost::thread(boost::bind(&boost::asio::io_service::run, &io_service));
+			wait = 0;
+		}
+	}
+    
+    boost::this_thread::sleep(boost::posix_time::seconds(1));
+    
+    //say hello to the server
+    std::string username = GetArg("-pooluser", "");
+    message_ptr hello_msg(new message(username.length()+2));    
+    *(hello_msg->data()) = username.length();
+    memcpy(hello_msg->body(), username.c_str(), username.length());
+    *(hello_msg->data()+username.length()+1) = thread_num_max;
+	_con->write_tcp(hello_msg);
+	
+	boost::this_thread::sleep(boost::posix_time::seconds(1));
+  
+	
+    {
+		boost::unique_lock<boost::shared_mutex> lock(_mutex_master);
+		std::cout << "spawning " << thread_num_max << " worker thread(s)" << std::endl;
+
+		for (unsigned int i = 0; i < thread_num_max; ++i) {
+			CWorkerThread *worker = new CWorkerThread(this, i, bprovider);
+			worker->work();
+		}
+	}
+	
+	//TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	//CBlockIndex *pindexOld = pindexBest;
+    //pindexBest = new CBlockIndex(); // this could need a efficient solution
+	//delete pindexOld;
+    
+	for (;;) {
+		if (!_con->is_open()) {
+			std::cout << "connection not available" << std::endl;
+			break;
+		}
+		boost::this_thread::sleep(boost::posix_time::seconds(10));
+		
+		//TODO: reconnect on fail!!
+	}
+	
+	_con->close();
+	con_thr->join();
+	delete _con;
+	delete con_thr;
 	
 	return;
 	
-    CBlockProviderGW *bprovider = NULL;
+    /*CBlockProviderGW *bprovider = NULL;
     bool longpoll               = false;
 
     {
@@ -488,7 +507,7 @@ public:
       }
     } else {
       wait_for_workers();
-    }
+    }*/
   }
 
   ~CMasterThread() {}
@@ -507,21 +526,11 @@ private:
     boost::unique_lock<boost::shared_mutex> lock(_mutex_working);
   }
   
-  CClientConnection& _con;
+  CClientConnection* _con;
 
   boost::shared_mutex _mutex_master;
   boost::shared_mutex _mutex_working;
 };
-
-class CNotify : public CNotifyStub
-{
-public:
-  CNotify(int thr) : CNotifyStub(thr) { }
-  void process_message(message_ptr& msg) {
-    //std::cout << "received via TCP " << msg << std::endl;
-  }
-};
-
 
 /*********************************
 * main - this is where it begins
@@ -555,22 +564,9 @@ int main(int argc, char **argv)
 
   GeneratePrimeTable();
   
-  CNotify* notifier = new CNotify(thread_num_max);  
-  boost::asio::io_service io_service;
-  boost::asio::ip::tcp::resolver resolver(io_service); //resolve dns
-  boost::asio::ip::tcp::resolver::query query(GetArg("-poolip", "127.0.0.1"), GetArg("-poolport", "1337"));
-  boost::asio::ip::tcp::resolver::iterator endpoint = resolver.resolve(query);
-  
-  CClientConnection c(notifier, io_service, endpoint);
-
-  boost::thread t(boost::bind(&boost::asio::io_service::run, &io_service));
-  
   // ok, start mining:
-  CMasterThread *mt = new CMasterThread(c);
+  CMasterThread *mt = new CMasterThread();
   mt->run();
-  
-  c.close();
-  t.join();  
   
   // end:
   return EXIT_SUCCESS;

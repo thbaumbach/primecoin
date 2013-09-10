@@ -4611,11 +4611,11 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
           pblock = &pblocktemplate->block;
           IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
         } else if ((pblock = block_provider->getBlock(thread_id)) == NULL) { //server not reachable?
-          MilliSleep(2000);
+          MilliSleep(20000);
           continue;
         } else if (old_hash == pblock->GetHeaderHash()) {
           if (old_nonce >= 0xffff0000) {
-		    MilliSleep(50);
+		    MilliSleep(100);
 			//TODO: FORCE a new getblock!
 			if (fDebug && GetBoolArg("-printmining"))
 				printf("Nothing to do --- uh ih uh ah ah bing bang!!\n");
@@ -4804,7 +4804,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
                 break;
             if (nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 10)
                 break;
-            if (pindexPrev != pindexBest || ((block_provider != NULL) && (GetTime() - nStart) > 99))
+            if (pindexPrev != pindexBest || (block_provider != NULL && GetTime() - nStart > 120))
                 break;
             if (fNewBlock) //aka: sieve's done, we need a updated nonce			
             {
