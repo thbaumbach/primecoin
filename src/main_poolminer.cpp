@@ -120,7 +120,7 @@ public:
 	
 	void setBlocksFromData(unsigned char* data) {
 		CBlock* blocks = new CBlock[thread_num_max];
-		for (int i = 0; i < thread_num_max; ++i)
+		for (size_t i = 0; i < thread_num_max; ++i)
 			convertDataToBlock(data+i*128,blocks[i]);
 		CBlock* old_blocks = NULL;
 		{
@@ -140,7 +140,7 @@ public:
 		blockraw.nBits          = block->nBits;
 		blockraw.nNonce         = block->nNonce;
 		
-		std::cout << "submit: " << block->hashMerkleRoot.ToString().c_str() << std::endl;
+		//std::cout << "submit: " << block->hashMerkleRoot.ToString().c_str() << std::endl;
 		
 		std::vector<unsigned char> primemultiplier = block->bnPrimeChainMultiplier.getvch();
 		if (primemultiplier.size() > 47) {
@@ -271,13 +271,18 @@ public:
 					break;
 				}					
 				type = buf;
+				if (len != 1)
+					std::cout << "error on read_some1: " << len << " should be " << 1 << std::endl;					
 			}
 			
 			switch (type) {
 				case 0: {
-					unsigned char* buf = new unsigned char[128*thread_num_max]; //get header
+					size_t buf_size = 128*thread_num_max;
+					unsigned char* buf = new unsigned char[buf_size]; //get header
 					boost::system::error_code error;
-					size_t len = socket->read_some(boost::asio::buffer(buf, 128*thread_num_max), error);				
+					size_t len = socket->read_some(boost::asio::buffer(buf, buf_size), error);
+					while (len < buf_size)
+						len += socket->read_some(boost::asio::buffer(buf+len, buf_size-len), error);
 					if (error == boost::asio::error::eof) {
 						done = true;
 						break; // Connection closed cleanly by peer.
@@ -286,18 +291,24 @@ public:
 						done = true;
 						break;
 					}
-					_bprovider->setBlocksFromData(buf);
-					std::cout << "[MASTER] work received" << std::endl;
-					delete[] buf;
-					
+					if (len == buf_size) {
+						_bprovider->setBlocksFromData(buf);
+						std::cout << "[MASTER] work received" << std::endl;
+					} else
+						std::cout << "error on read_some2a: " << len << " should be " << buf_size << std::endl;					
+					delete[] buf;					
 					CBlockIndex *pindexOld = pindexBest;
 					pindexBest = new CBlockIndex(); //=notify worker (this could need a efficient alternative)
 					delete pindexOld;
+					
 				} break;
 				case 1: {
+					size_t buf_size = 4;
 					int buf; //get header
 					boost::system::error_code error;
-					size_t len = socket->read_some(boost::asio::buffer(&buf, 4), error);				
+					size_t len = socket->read_some(boost::asio::buffer(&buf, buf_size), error);				
+					while (len < buf_size)
+						len += socket->read_some(boost::asio::buffer(&buf+len, buf_size-len), error);
 					if (error == boost::asio::error::eof) {
 						done = true;
 						break; // Connection closed cleanly by peer.
@@ -306,10 +317,13 @@ public:
 						done = true;
 						break;
 					}
-					int retval = buf;
-					std::cout << "[MASTER] submitted share -> " <<
-						(retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval ==
-						1 ? "BLOCK" : "SHARE") << std::endl;
+					if (len == buf_size) {
+						int retval = buf;
+						std::cout << "[MASTER] submitted share -> " <<
+							(retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval ==
+							1 ? "BLOCK" : "SHARE") << std::endl;
+					} else
+						std::cout << "error on read_some2b: " << len << " should be " << buf_size << std::endl;					
 				} break;
 				case 2: {
 					//PING-PONG EVENT, nothing to do
