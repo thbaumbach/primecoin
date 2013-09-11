@@ -233,9 +233,9 @@ public:
 		{
 		  //socket.close();
 		  socket.reset(new boost::asio::ip::tcp::socket(io_service));
-		  socket->set_option(nd_option);
 		  socket->connect(*endpoint++, error_socket);
 		}
+		socket->set_option(nd_option);
 		
 		if (error_socket) {
 			std::cout << error_socket << std::endl;
