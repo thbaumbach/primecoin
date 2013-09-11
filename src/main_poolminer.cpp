@@ -383,7 +383,8 @@ void stats_on_exit() {
 		if (it->first == 0) rejects = it->second;
 		if (it->first == 1) blocks = it->second;
 		if (it->first > 1) valid += it->second;
-	}	
+	}
+	std::cout << std::endl;
 	std::cout << "********************************************" << std::endl;
 	std::cout << "*** running time: " << static_cast<double>((t_end - t_start).total_seconds()) / 3600.0 << "hrs" << std::endl;
 	std::cout << "***" << std::endl;
@@ -442,7 +443,7 @@ static sighandler_t set_signal_handler (int signum, sighandler_t signalhandler) 
    new_sig.sa_handler = signalhandler;
    sigemptyset (&new_sig.sa_mask);
    new_sig.sa_flags = SA_RESTART;
-   if (sigaction (sig_nr, &new_sig, &old_sig) < 0)
+   if (sigaction (signum, &new_sig, &old_sig) < 0)
       return SIG_ERR;
    return old_sig.sa_handler;
 }
