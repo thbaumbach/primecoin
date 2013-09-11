@@ -18,9 +18,6 @@
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 2
 
-using boost::asio::ip::tcp;
-//#include "primeminer_conx.hpp"
-
 // <START> be compatible to original code (not actually used!)
 #include "txdb.h"
 #include "walletdb.h"
@@ -65,15 +62,13 @@ struct blockHeader_t {
 
 size_t thread_num_max;
 boost::asio::ip::tcp::socket* socket_to_server;
+boost::posix_time::ptime t_start;
+std::map<int,unsigned long> statistics;
+bool running;
 
 /*********************************
 * helping functions
 *********************************/
-
-void exit_handler() {
-  std::cout << "cleanup!" << std::endl;
-  if (socket_to_server != NULL) socket_to_server->close();
-}
 
 void convertDataToBlock(unsigned char* blockData, CBlock& block) {
   {
@@ -225,7 +220,7 @@ public:
 	boost::asio::ip::tcp::resolver::iterator end;
 	boost::asio::ip::tcp::no_delay nd_option(true);
 	
-	for (;;) {
+	while (running) {
 		endpoint = resolver.resolve(query);
 		boost::scoped_ptr<boost::asio::ip::tcp::socket> socket;
 		boost::system::error_code error_socket = boost::asio::error::host_not_found;
@@ -319,10 +314,15 @@ public:
 						break;
 					}
 					if (len == buf_size) {
-						int retval = buf;
+						int retval = buf > 100000 ? 1 : buf;
 						std::cout << "[MASTER] submitted share -> " <<
 							(retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval ==
 							1 ? "BLOCK" : "SHARE") << std::endl;
+						std::map<int,unsigned long>::iterator it = statistics.find(retval);
+						if (it == statistics.end())
+							statistics.insert(std::pair<int,unsigned long>(retval,1));
+						else
+							statistics[retval]++;
 					} else
 						std::cout << "error on read_some2b: " << len << " should be " << buf_size << std::endl;					
 				} break;
@@ -363,16 +363,99 @@ private:
 };
 
 /*********************************
+* exit / end / shutdown
+*********************************/
+
+void stats_on_exit() {
+	if (!running) return;
+	boost::this_thread::sleep(boost::posix_time::seconds(1));
+	std::cout << std::fixed;
+	std::cout << std::setprecision(3);
+	boost::posix_time::ptime t_end = boost::posix_time::second_clock::universal_time();	
+	unsigned long rejects = 0;
+	unsigned long stale = 0;
+	unsigned long valid = 0;
+	unsigned long blocks = 0;
+	for (std::map<int,unsigned long>::iterator it = statistics.begin(); it != statistics.end(); ++it) {
+		if (it->first < 0) stale += it->second;
+		if (it->first == 0) rejects = it->second;
+		if (it->first == 1) blocks = it->second;
+		if (it->first > 1) valid += it->second;
+	}	
+	std::cout << "********************************************" << std::endl;
+	std::cout << "*** running time: " << static_cast<double>((t_end - t_start).total_seconds()) / 3600.0 << "hrs" << std::endl;
+	std::cout << "***" << std::endl;
+	for (std::map<int,unsigned long>::iterator it = statistics.begin(); it != statistics.end(); ++it)
+		if (it->first > 1)
+			std::cout << "*** " << it->first << "-chains: " << it->second << "\t(" << ((valid+blocks > 0) ? (static_cast<double>(it->second) / static_cast<double>(valid+blocks)) * 100.0 : 0.0) << "%)" << std::endl;
+	if (valid+blocks+rejects+stale > 0) {
+	std::cout << "***" << std::endl;
+	std::cout << "*** valid: " << valid+blocks << "\t(" << (static_cast<double>(valid+blocks) / static_cast<double>(valid+blocks+rejects+stale)) * 100.0 << "%)" << std::endl;
+	std::cout << "*** rejects: " << rejects << "\t(" << (static_cast<double>(rejects) / static_cast<double>(valid+blocks+rejects+stale)) * 100.0 << "%)" << std::endl;
+	std::cout << "*** stale: " << stale << "\t(" << (static_cast<double>(stale) / static_cast<double>(valid+blocks+rejects+stale)) * 100.0 << "%)" << std::endl;
+	} else {
+		std::cout <<  "*** valid: " << 0 << "\t(" << 0.0 << "%)" << std::endl;
+		std::cout <<  "*** rejects: " << 0 << "\t(" << 0.0 << "%)" << std::endl;
+		std::cout <<  "*** stale: " << 0 << "\t(" << 0.0 << "%)" << std::endl;
+	}
+	std::cout << "********************************************" << std::endl;
+}
+
+void exit_handler() {
+	//cleanup for not-retarded OS
+	if (socket_to_server != NULL) {
+		socket_to_server->close();
+		socket_to_server = NULL;
+	}
+	stats_on_exit();
+	running = false;
+}
+
+#ifdef __MINGW32__
+
+#define WIN32_LEAN_AND_MEAN   
+#include <windows.h>
+#include <cstdlib>
+#include <csignal>
+
+BOOL WINAPI handler(DWORD dwCtrlType) {
+	//'special' cleanup for windows
+	switch(dwCtrlType) {
+		case CTRL_C_EVENT:
+		case CTRL_BREAK_EVENT: {
+			if (socket_to_server != NULL) {
+				socket_to_server->close();
+				socket_to_server = NULL;
+			}
+			stats_on_exit();
+			running = false;
+		} break;
+		default: break;
+	}	
+	return FALSE;
+}
+
+#endif
+
+/*********************************
 * main - this is where it begins
 *********************************/
 int main(int argc, char **argv)
 {
   std::cout << "********************************************" << std::endl;
   std::cout << "*** Primeminer - Primecoin Pool Miner v" << VERSION_MAJOR << "." << VERSION_MINOR << std::endl;
-  std::cout << "*** by xolokram/TB - www.beeeeer.org" << std::endl;
+  std::cout << "*** by xolokram/TB - www.beeeeer.org - glhf" << std::endl;
   std::cout << "***" << std::endl;
   std::cout << "*** thx to Sunny King & mikaelh" << std::endl;
+  std::cout << "*** press CTRL+C to exit" << std::endl;
   std::cout << "********************************************" << std::endl;
+
+  t_start = boost::posix_time::second_clock::universal_time();
+  running = true;
+  
+#ifdef __MINGW32__
+  SetConsoleCtrlHandler(handler, TRUE);
+#endif
 
   if (argc < 2)
   {
