@@ -437,7 +437,17 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType) {
 
 #else
 
-void ctrl_handler(sig_t s) {
+static sighandler_t set_signal_handler (int signum, sighandler_t signalhandler) {
+   struct sigaction new_sig, old_sig;
+   new_sig.sa_handler = signalhandler;
+   sigemptyset (&new_sig.sa_mask);
+   new_sig.sa_flags = SA_RESTART;
+   if (sigaction (sig_nr, &new_sig, &old_sig) < 0)
+      return SIG_ERR;
+   return old_sig.sa_handler;
+}
+
+void ctrl_handler(int signum) {
 	exit(1); 
 }
 
@@ -462,7 +472,7 @@ int main(int argc, char **argv)
 #ifdef __MINGW32__
   SetConsoleCtrlHandler(ctrl_handler, TRUE);
 #else
-  signal(SIGINT, ctrl_handler);
+  set_signal_handler(SIGINT, ctrl_handler);
 #endif
 
   if (argc < 2)
