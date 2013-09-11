@@ -311,6 +311,9 @@ public:
 						(retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval ==
 						1 ? "BLOCK" : "SHARE") << std::endl;
 				} break;
+				case 2: {
+					//PING-PONG EVENT, nothing to do
+				}
 				default: {
 					std::cout << "unknown header type = " << type << std::endl;
 				}
