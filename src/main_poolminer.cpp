@@ -152,6 +152,8 @@ public:
 			blockraw.primemultiplier[1 + i] = primemultiplier[i];
 
 		boost::system::error_code error;
+		while (socket_to_server == NULL)
+			boost::this_thread::sleep(boost::posix_time::seconds(1));
 		socket_to_server->write_some(boost::asio::buffer((unsigned char*)&blockraw, 128));
 		if (error)
 			std::cout << error << " @ write_some_submit" << std::endl;
@@ -220,16 +222,18 @@ public:
     boost::asio::io_service io_service;
     boost::asio::ip::tcp::resolver resolver(io_service); //resolve dns
     boost::asio::ip::tcp::resolver::query query(GetArg("-poolip", "127.0.0.1"), GetArg("-poolport", "1337"));
-    boost::asio::ip::tcp::resolver::iterator endpoint = resolver.resolve(query);
+    boost::asio::ip::tcp::resolver::iterator endpoint;
 	boost::asio::ip::tcp::resolver::iterator end;
 	
 	for (;;) {
-		boost::asio::ip::tcp::socket socket(io_service);
+		endpoint = resolver.resolve(query);
+		boost::scoped_ptr<boost::asio::ip::tcp::socket> socket;
 		boost::system::error_code error_socket = boost::asio::error::host_not_found;
 		while (error_socket && endpoint != end)
 		{
-		  socket.close();
-		  socket.connect(*endpoint++, error_socket);
+		  //socket.close();
+		  socket.reset(new boost::asio::ip::tcp::socket(io_service));
+		  socket->connect(*endpoint++, error_socket);
 		}
 		
 		if (error_socket) {
@@ -245,13 +249,13 @@ public:
 			*((unsigned char*)hello) = username.length();
 			*((unsigned char*)hello+username.length()+1) = thread_num_max;
 			boost::system::error_code error;
-			socket.write_some(boost::asio::buffer(hello, username.length()+2), error);
+			socket->write_some(boost::asio::buffer(hello, username.length()+2), error);
 			if (error)
 				std::cout << error << " @ write_some_hello" << std::endl;
 			delete[] hello;
 		}
 		
-		socket_to_server = &socket; //TODO: lock/mutex
+		socket_to_server = socket.get(); //TODO: lock/mutex
 			
 		bool done = false;
 		while (!done) {
@@ -259,7 +263,7 @@ public:
 			{ //get the data header
 				unsigned char buf = 0; //get header
 				boost::system::error_code error;
-				size_t len = socket.read_some(boost::asio::buffer(&buf, 1), error);				
+				size_t len = socket->read_some(boost::asio::buffer(&buf, 1), error);				
 				if (error == boost::asio::error::eof)
 					break; // Connection closed cleanly by peer.
 				else if (error) {
@@ -273,7 +277,7 @@ public:
 				case 0: {
 					unsigned char* buf = new unsigned char[128*thread_num_max]; //get header
 					boost::system::error_code error;
-					size_t len = socket.read_some(boost::asio::buffer(buf, 128*thread_num_max), error);				
+					size_t len = socket->read_some(boost::asio::buffer(buf, 128*thread_num_max), error);				
 					if (error == boost::asio::error::eof) {
 						done = true;
 						break; // Connection closed cleanly by peer.
@@ -293,7 +297,7 @@ public:
 				case 1: {
 					int buf; //get header
 					boost::system::error_code error;
-					size_t len = socket.read_some(boost::asio::buffer(&buf, 4), error);				
+					size_t len = socket->read_some(boost::asio::buffer(&buf, 4), error);				
 					if (error == boost::asio::error::eof) {
 						done = true;
 						break; // Connection closed cleanly by peer.
@@ -305,7 +309,7 @@ public:
 					int retval = buf;
 					std::cout << "[MASTER] submitted share -> " <<
 						(retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval ==
-						1 ? "BLOCK" : "SHARE") << "(" << retval << ")" << std::endl;
+						1 ? "BLOCK" : "SHARE") << std::endl;
 				} break;
 				default: {
 					std::cout << "unknown header type = " << type << std::endl;
