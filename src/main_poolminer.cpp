@@ -190,8 +190,7 @@ public:
 	}
 
 	void work() { // called from within master thread
-		_working_lock = new boost::shared_lock<boost::shared_mutex>(
-		_master->get_working_lock());
+		_working_lock = new boost::shared_lock<boost::shared_mutex>(_master->get_working_lock());
 	}
 
 protected:
@@ -224,6 +223,7 @@ public:
     boost::asio::ip::tcp::resolver::query query(GetArg("-poolip", "127.0.0.1"), GetArg("-poolport", "1337"));
     boost::asio::ip::tcp::resolver::iterator endpoint;
 	boost::asio::ip::tcp::resolver::iterator end;
+	boost::asio::ip::tcp::no_delay nd_option(true);
 	
 	for (;;) {
 		endpoint = resolver.resolve(query);
@@ -233,6 +233,7 @@ public:
 		{
 		  //socket.close();
 		  socket.reset(new boost::asio::ip::tcp::socket(io_service));
+		  socket->set_option(nd_option);
 		  socket->connect(*endpoint++, error_socket);
 		}
 		
