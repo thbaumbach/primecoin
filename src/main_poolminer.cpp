@@ -313,7 +313,7 @@ public:
 				} break;
 				case 2: {
 					//PING-PONG EVENT, nothing to do
-				}
+				} break;
 				default: {
 					std::cout << "unknown header type = " << type << std::endl;
 				}
