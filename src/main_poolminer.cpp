@@ -6,6 +6,8 @@
 #include <iostream>
 #include <fstream>
 #include <cstdio>
+#include <cstdlib>
+#include <csignal>
 #include <map>
 
 #include "prime.h"
@@ -415,10 +417,8 @@ void exit_handler() {
 
 #define WIN32_LEAN_AND_MEAN   
 #include <windows.h>
-#include <cstdlib>
-#include <csignal>
 
-BOOL WINAPI handler(DWORD dwCtrlType) {
+BOOL WINAPI ctrl_handler(DWORD dwCtrlType) {
 	//'special' cleanup for windows
 	switch(dwCtrlType) {
 		case CTRL_C_EVENT:
@@ -433,6 +433,12 @@ BOOL WINAPI handler(DWORD dwCtrlType) {
 		default: break;
 	}	
 	return FALSE;
+}
+
+#else
+
+void ctrl_handler(sig_t s) {
+	exit(1); 
 }
 
 #endif
@@ -454,7 +460,9 @@ int main(int argc, char **argv)
   running = true;
   
 #ifdef __MINGW32__
-  SetConsoleCtrlHandler(handler, TRUE);
+  SetConsoleCtrlHandler(ctrl_handler, TRUE);
+#else
+  signal(SIGINT, ctrl_handler);
 #endif
 
   if (argc < 2)
