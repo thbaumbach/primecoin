@@ -254,7 +254,8 @@ public:
 		}
 		
 		socket_to_server = socket.get(); //TODO: lock/mutex
-			
+		
+		int reject_counter = 0;
 		bool done = false;
 		while (!done) {
 			int type = -1;
@@ -321,6 +322,15 @@ public:
 							(retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval ==
 							1 ? "BLOCK" : "SHARE") << std::endl;
 						std::map<int,unsigned long>::iterator it = statistics.find(retval);
+						if (retval > 0)
+							reject_counter = 0;
+						else
+							reject_counter++;
+						if (reject_counter >= 3) {
+							std::cout << "too many rejects, forcing reconnect." << std::endl;					
+							socket->close();
+							done = true;
+						}
 						if (it == statistics.end())
 							statistics.insert(std::pair<int,unsigned long>(retval,1));
 						else
@@ -415,7 +425,7 @@ void exit_handler() {
 	running = false;
 }
 
-#ifdef __MINGW32__
+#ifdef __MINGW__
 
 #define WIN32_LEAN_AND_MEAN   
 #include <windows.h>
@@ -437,7 +447,8 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType) {
 	return FALSE;
 }
 
-#elseif __GNUC__
+#else
+#ifdef __GNUG__
 
 static sighandler_t set_signal_handler (int signum, sighandler_t signalhandler) {
    struct sigaction new_sig, old_sig;
@@ -453,7 +464,8 @@ void ctrl_handler(int signum) {
 	exit(1); 
 }
 
-#endif //TODO: __APPLE__
+#endif
+#endif //TODO: __APPLE__ ?
 
 /*********************************
 * main - this is where it begins
@@ -471,10 +483,12 @@ int main(int argc, char **argv)
   t_start = boost::posix_time::second_clock::universal_time();
   running = true;
   
-#ifdef __MINGW32__
+#ifdef __MINGW__
   SetConsoleCtrlHandler(ctrl_handler, TRUE);
-##elseif __GNUC__
+#else
+#ifdef __GNUG__
   set_signal_handler(SIGINT, ctrl_handler);
+#endif
 #endif //TODO: __APPLE__
 
   if (argc < 2)
