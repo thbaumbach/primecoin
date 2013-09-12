@@ -254,7 +254,8 @@ public:
 		}
 		
 		socket_to_server = socket.get(); //TODO: lock/mutex
-			
+		
+		int reject_counter = 0;
 		bool done = false;
 		while (!done) {
 			int type = -1;
@@ -321,6 +322,15 @@ public:
 							(retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval ==
 							1 ? "BLOCK" : "SHARE") << std::endl;
 						std::map<int,unsigned long>::iterator it = statistics.find(retval);
+						if (retval > 0)
+							reject_counter = 0;
+						else
+							reject_counter++;
+						if (reject_counter >= 3) {
+							std::cout << "too many rejects, forcing reconnect." << std::endl;					
+							socket->close();
+							done = true;
+						}
 						if (it == statistics.end())
 							statistics.insert(std::pair<int,unsigned long>(retval,1));
 						else
