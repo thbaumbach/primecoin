@@ -402,6 +402,7 @@ void stats_on_exit() {
 		std::cout <<  "*** stale: " << 0 << "\t(" << 0.0 << "%)" << std::endl;
 	}
 	std::cout << "********************************************" << std::endl;
+	boost::this_thread::sleep(boost::posix_time::seconds(3));
 }
 
 void exit_handler() {
