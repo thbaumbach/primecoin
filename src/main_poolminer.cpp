@@ -424,7 +424,7 @@ void exit_handler() {
 	running = false;
 }
 
-#ifdef __MINGW32__
+#ifdef __MINGW__
 
 #define WIN32_LEAN_AND_MEAN   
 #include <windows.h>
@@ -446,7 +446,8 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType) {
 	return FALSE;
 }
 
-#elseif __GNUC__
+#else
+#ifdef __GNUG__
 
 static sighandler_t set_signal_handler (int signum, sighandler_t signalhandler) {
    struct sigaction new_sig, old_sig;
@@ -462,7 +463,8 @@ void ctrl_handler(int signum) {
 	exit(1); 
 }
 
-#endif //TODO: __APPLE__
+#endif
+#endif //TODO: __APPLE__ ?
 
 /*********************************
 * main - this is where it begins
@@ -480,10 +482,12 @@ int main(int argc, char **argv)
   t_start = boost::posix_time::second_clock::universal_time();
   running = true;
   
-#ifdef __MINGW32__
+#ifdef __MINGW__
   SetConsoleCtrlHandler(ctrl_handler, TRUE);
-##elseif __GNUC__
+#else
+#ifdef __GNUG__
   set_signal_handler(SIGINT, ctrl_handler);
+#endif
 #endif //TODO: __APPLE__
 
   if (argc < 2)
