@@ -18,7 +18,8 @@
 #include <boost/asio.hpp>
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 2
+#define VERSION_MINOR 3
+#define VERSION_EXT "RC0"
 
 // <START> be compatible to original code (not actually used!)
 #include "txdb.h"
@@ -483,7 +484,7 @@ void ctrl_handler(int signum) {
 int main(int argc, char **argv)
 {
   std::cout << "********************************************" << std::endl;
-  std::cout << "*** Primeminer - Primecoin Pool Miner v" << VERSION_MAJOR << "." << VERSION_MINOR << std::endl;
+  std::cout << "*** Xolominer - Primecoin Pool Miner v" << VERSION_MAJOR << "." << VERSION_MINOR << " " << VERSION_EXT << std::endl;
   std::cout << "*** by xolokram/TB - www.beeeeer.org - glhf" << std::endl;
   std::cout << "***" << std::endl;
   std::cout << "*** thx to Sunny King & mikaelh" << std::endl;
