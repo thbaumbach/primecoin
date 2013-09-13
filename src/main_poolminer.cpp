@@ -62,11 +62,12 @@ struct blockHeader_t {
   unsigned char primemultiplier[48]; // 80+48
 };                                   // =128 bytes header (80 default + 48 primemultiplier)
 
-size_t thread_num_max;
-boost::asio::ip::tcp::socket* socket_to_server;
-boost::posix_time::ptime t_start;
-std::map<int,unsigned long> statistics;
-bool running;
+static size_t thread_num_max;
+static boost::asio::ip::tcp::socket* socket_to_server;
+static boost::posix_time::ptime t_start;
+static std::map<int,unsigned long> statistics;
+static bool running;
+static volatile int submitting_share;
 
 /*********************************
 * helping functions
@@ -149,11 +150,15 @@ public:
 			blockraw.primemultiplier[1 + i] = primemultiplier[i];
 
 		boost::system::error_code error;
-		while (socket_to_server == NULL)
-			boost::this_thread::sleep(boost::posix_time::seconds(1));
-		socket_to_server->write_some(boost::asio::buffer((unsigned char*)&blockraw, 128));
-		if (error)
-			std::cout << error << " @ write_some_submit" << std::endl;
+		++submitting_share;
+		while (socket_to_server == NULL && running)
+			boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+		if (running) {
+			socket_to_server->write_some(boost::asio::buffer((unsigned char*)&blockraw, 128));
+			if (error)
+				std::cout << error << " @ write_some_submit" << std::endl;
+		}
+		--submitting_share;
 	}
 
 protected:
@@ -228,9 +233,11 @@ public:
 		boost::system::error_code error_socket = boost::asio::error::host_not_found;
 		while (error_socket && endpoint != end)
 		{
-		  //socket.close();
+		  //socket->close();
 		  socket.reset(new boost::asio::ip::tcp::socket(io_service));
-		  socket->connect(*endpoint++, error_socket);
+		  boost::asio::ip::tcp::endpoint tcp_ep = *endpoint++;
+		  socket->connect(tcp_ep, error_socket);
+		  std::cout << "connecting to " << tcp_ep << std::endl;
 		}
 		socket->set_option(nd_option);
 		
@@ -348,7 +355,8 @@ public:
 		}
 		
 		socket_to_server = NULL; //TODO: lock/mutex
-		boost::this_thread::sleep(boost::posix_time::seconds(10));
+		for (int i = 0; i < 100 && submitting_share < 1; ++i)
+			boost::this_thread::sleep(boost::posix_time::milliseconds(100));
 	}
   }
 
