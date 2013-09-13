@@ -149,14 +149,17 @@ public:
 		for (size_t i = 0; i < primemultiplier.size(); ++i)
 			blockraw.primemultiplier[1 + i] = primemultiplier[i];
 
-		boost::system::error_code error;
+		boost::posix_time::ptime submit_start = boost::posix_time::second_clock::universal_time();
+		boost::system::error_code submit_error = boost::asio::error::host_not_found; //run at least 1 time
 		++submitting_share;
-		while (socket_to_server == NULL && running)
-			boost::this_thread::sleep(boost::posix_time::milliseconds(100));
-		if (running) {
-			socket_to_server->write_some(boost::asio::buffer((unsigned char*)&blockraw, 128));
-			if (error)
-				std::cout << error << " @ write_some_submit" << std::endl;
+		while (submit_error && running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 100) {
+			while (socket_to_server == NULL && running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 100) //socket error was issued somewhere else
+				boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+			if (running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 100) {
+				socket_to_server->write_some(boost::asio::buffer((unsigned char*)&blockraw, 128), submit_error);
+				if (submit_error)
+					std::cout << submit_error << " @ write_some_submit" << std::endl;
+			}
 		}
 		--submitting_share;
 	}
