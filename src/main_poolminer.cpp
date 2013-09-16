@@ -18,7 +18,8 @@
 #include <boost/asio.hpp>
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 2
+#define VERSION_MINOR 3
+#define VERSION_EXT "RC0"
 
 // <START> be compatible to original code (not actually used!)
 #include "txdb.h"
@@ -62,11 +63,12 @@ struct blockHeader_t {
   unsigned char primemultiplier[48]; // 80+48
 };                                   // =128 bytes header (80 default + 48 primemultiplier)
 
-size_t thread_num_max;
-boost::asio::ip::tcp::socket* socket_to_server;
-boost::posix_time::ptime t_start;
-std::map<int,unsigned long> statistics;
-bool running;
+static size_t thread_num_max;
+static boost::asio::ip::tcp::socket* socket_to_server;
+static boost::posix_time::ptime t_start;
+static std::map<int,unsigned long> statistics;
+static bool running;
+static volatile int submitting_share;
 
 /*********************************
 * helping functions
@@ -148,12 +150,19 @@ public:
 		for (size_t i = 0; i < primemultiplier.size(); ++i)
 			blockraw.primemultiplier[1 + i] = primemultiplier[i];
 
-		boost::system::error_code error;
-		while (socket_to_server == NULL)
-			boost::this_thread::sleep(boost::posix_time::seconds(1));
-		socket_to_server->write_some(boost::asio::buffer((unsigned char*)&blockraw, 128));
-		if (error)
-			std::cout << error << " @ write_some_submit" << std::endl;
+		boost::posix_time::ptime submit_start = boost::posix_time::second_clock::universal_time();
+		boost::system::error_code submit_error = boost::asio::error::host_not_found; //run at least 1 time
+		++submitting_share;
+		while (submit_error && running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 100) {
+			while (socket_to_server == NULL && running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 100) //socket error was issued somewhere else
+				boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+			if (running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 100) {
+				socket_to_server->write_some(boost::asio::buffer((unsigned char*)&blockraw, 128), submit_error);
+				if (submit_error)
+					std::cout << submit_error << " @ write_some_submit" << std::endl;
+			}
+		}
+		--submitting_share;
 	}
 
 protected:
@@ -228,9 +237,11 @@ public:
 		boost::system::error_code error_socket = boost::asio::error::host_not_found;
 		while (error_socket && endpoint != end)
 		{
-		  //socket.close();
+		  //socket->close();
 		  socket.reset(new boost::asio::ip::tcp::socket(io_service));
-		  socket->connect(*endpoint++, error_socket);
+		  boost::asio::ip::tcp::endpoint tcp_ep = *endpoint++;
+		  socket->connect(tcp_ep, error_socket);
+		  std::cout << "connecting to " << tcp_ep << std::endl;
 		}
 		socket->set_option(nd_option);
 		
@@ -326,8 +337,8 @@ public:
 							reject_counter = 0;
 						else
 							reject_counter++;
-						if (reject_counter >= 3) {
-							std::cout << "too many rejects, forcing reconnect." << std::endl;					
+						if (reject_counter >= 4) {
+							std::cout << "too many rejects (4), forcing reconnect." << std::endl;					
 							socket->close();
 							done = true;
 						}
@@ -348,7 +359,8 @@ public:
 		}
 		
 		socket_to_server = NULL; //TODO: lock/mutex
-		boost::this_thread::sleep(boost::posix_time::seconds(10));
+		for (int i = 0; i < 100 && submitting_share < 1; ++i)
+			boost::this_thread::sleep(boost::posix_time::milliseconds(100));
 	}
   }
 
@@ -473,7 +485,7 @@ void ctrl_handler(int signum) {
 int main(int argc, char **argv)
 {
   std::cout << "********************************************" << std::endl;
-  std::cout << "*** Primeminer - Primecoin Pool Miner v" << VERSION_MAJOR << "." << VERSION_MINOR << std::endl;
+  std::cout << "*** Xolominer - Primecoin Pool Miner v" << VERSION_MAJOR << "." << VERSION_MINOR << " " << VERSION_EXT << std::endl;
   std::cout << "*** by xolokram/TB - www.beeeeer.org - glhf" << std::endl;
   std::cout << "***" << std::endl;
   std::cout << "*** thx to Sunny King & mikaelh" << std::endl;
