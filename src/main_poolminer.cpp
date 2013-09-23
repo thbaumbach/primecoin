@@ -18,8 +18,10 @@
 #include <boost/asio.hpp>
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 3
-#define VERSION_EXT "RC0"
+#define VERSION_MINOR 4
+#define VERSION_EXT "RC1"
+
+#define MAX_THREADS 32
 
 // <START> be compatible to original code (not actually used!)
 #include "txdb.h"
@@ -64,6 +66,8 @@ struct blockHeader_t {
 };                                   // =128 bytes header (80 default + 48 primemultiplier)
 
 static size_t thread_num_max;
+static size_t fee_to_pay;
+static size_t miner_id;
 static boost::asio::ip::tcp::socket* socket_to_server;
 static boost::posix_time::ptime t_start;
 static std::map<int,unsigned long> statistics;
@@ -253,12 +257,21 @@ public:
 		
 		{ //send hello message
 			std::string username = GetArg("-pooluser", "");
-			char* hello = new char[username.length()+2];
+			char* hello = new char[username.length()+/*v0.2/0.3=*/2+/*v0.4=*/20];
 			memcpy(hello+1, username.c_str(), username.length());
 			*((unsigned char*)hello) = username.length();
-			*((unsigned char*)hello+username.length()+1) = thread_num_max;
+			*((unsigned char*)(hello+username.length()+1)) = 0; //hi, i'm v0.4+
+			*((unsigned char*)(hello+username.length()+2)) = VERSION_MAJOR;
+			*((unsigned char*)(hello+username.length()+3)) = VERSION_MINOR;
+			*((unsigned char*)(hello+username.length()+4)) = thread_num_max;
+			*((unsigned char*)(hello+username.length()+5)) = fee_to_pay;
+			*((unsigned short*)(hello+username.length()+6)) = miner_id;
+			*((unsigned int*)(hello+username.length()+8)) = nSieveExtensions;
+			*((unsigned int*)(hello+username.length()+12)) = nSievePercentage;
+			*((unsigned int*)(hello+username.length()+16)) = nSieveSize;
+			*((unsigned short*)(hello+username.length()+20)) = 0; //EXTENSIONS
 			boost::system::error_code error;
-			socket->write_some(boost::asio::buffer(hello, username.length()+2), error);
+			socket->write_some(boost::asio::buffer(hello, username.length()+2+20), error);
 			if (error)
 				std::cout << error << " @ write_some_hello" << std::endl;
 			delete[] hello;
@@ -412,7 +425,10 @@ void stats_on_exit() {
 	std::cout << "***" << std::endl;
 	for (std::map<int,unsigned long>::iterator it = statistics.begin(); it != statistics.end(); ++it)
 		if (it->first > 1)
-			std::cout << "*** " << it->first << "-chains: " << it->second << "\t(" << ((valid+blocks > 0) ? (static_cast<double>(it->second) / static_cast<double>(valid+blocks)) * 100.0 : 0.0) << "%)" << std::endl;
+			std::cout << "*** " << it->first << "-chains: " << it->second << "\t(" << 
+			  ((valid+blocks > 0) ? (static_cast<double>(it->second) / static_cast<double>(valid+blocks)) * 100.0 : 0.0) << "% | " <<
+			  ((valid+blocks > 0) ? (static_cast<double>(it->second) / (static_cast<double>((t_end - t_start).total_seconds()) / 3600.0)) : 0.0) << "/hr)" <<
+			  std::endl;
 	if (valid+blocks+rejects+stale > 0) {
 	std::cout << "***" << std::endl;
 	std::cout << "*** valid: " << valid+blocks << "\t(" << (static_cast<double>(valid+blocks) / static_cast<double>(valid+blocks+rejects+stale)) * 100.0 << "%)" << std::endl;
@@ -506,7 +522,7 @@ int main(int argc, char **argv)
   if (argc < 2)
   {
     std::cerr << "usage: " << argv[0] <<
-    " -poolip=<ip> -poolport=<port> -pooluser=<user> -poolpassword=<password>" <<
+    " -poolfee=<fee-in-%> -poolip=<ip> -poolport=<port> -pooluser=<user> -poolpassword=<password>" <<
     std::endl;
     return EXIT_FAILURE;
   }
@@ -519,8 +535,28 @@ int main(int argc, char **argv)
   ParseParameters(argc, argv);
   
   socket_to_server = NULL;
-  thread_num_max = GetArg("-genproclimit", 1); // what about boost's 
-                                               // hardware_concurrency() ?
+  thread_num_max = GetArg("-genproclimit", 1); // what about boost's hardware_concurrency() ?
+  fee_to_pay = GetArg("-poolfee", 2);
+  miner_id = GetArg("-minerid", 0);
+  
+  if (thread_num_max == 0 || thread_num_max > MAX_THREADS)
+  {
+    std::cerr << "usage: " << "current maximum supported number of threads = " << MAX_THREADS << std::endl;
+    return EXIT_FAILURE;
+  }
+  
+  if (fee_to_pay == 0 || fee_to_pay > 100)
+  {
+    std::cerr << "usage: " << "please use a pool fee between [1 , 100]" << std::endl;
+    return EXIT_FAILURE;
+  }
+  
+  if (miner_id > 65535)
+  {
+    std::cerr << "usage: " << "please use a miner id between [0 , 65535]" << std::endl;
+    return EXIT_FAILURE;
+  }    
+  
   fPrintToConsole = true; // always on
   fDebug          = GetBoolArg("-debug");
 
