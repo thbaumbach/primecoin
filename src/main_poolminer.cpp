@@ -45,14 +45,6 @@ extern void BitcoinMiner(CWallet        *pwallet,
                          unsigned int thread_id);
 extern bool fPrintToConsole;
 extern bool fDebug;
-extern json_spirit::Object CallRPC(const std::string       & strMethod,
-                                   const json_spirit::Array& params,
-                                   const std::string       & server,
-                                   const std::string       & port,
-                                   std::map<std::string,
-                                            std::string>   & mapHeadersRet);
-extern int FormatHashBlocks(void        *pbuffer,
-                            unsigned int len);
 
 struct blockHeader_t {
   // comments: BYTES <index> + <length>
@@ -453,7 +445,7 @@ void exit_handler() {
 	running = false;
 }
 
-#ifdef __MINGW__
+#if defined(__MINGW32__) || defined(__MINGW64__)
 
 #define WIN32_LEAN_AND_MEAN   
 #include <windows.h>
@@ -475,8 +467,7 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType) {
 	return FALSE;
 }
 
-#else
-#ifdef __GNUG__
+#elif defined(__GNUG__)
 
 static sighandler_t set_signal_handler (int signum, sighandler_t signalhandler) {
    struct sigaction new_sig, old_sig;
@@ -492,7 +483,6 @@ void ctrl_handler(int signum) {
 	exit(1); 
 }
 
-#endif
 #endif //TODO: __APPLE__ ?
 
 /*********************************
@@ -511,12 +501,10 @@ int main(int argc, char **argv)
   t_start = boost::posix_time::second_clock::universal_time();
   running = true;
   
-#ifdef __MINGW__
+#if defined(__MINGW32__) || defined(__MINGW64__)
   SetConsoleCtrlHandler(ctrl_handler, TRUE);
-#else
-#ifdef __GNUG__
+#elif defined(__GNUG__)
   set_signal_handler(SIGINT, ctrl_handler);
-#endif
 #endif //TODO: __APPLE__
 
   if (argc < 2)
@@ -572,6 +560,8 @@ int main(int argc, char **argv)
   // end:
   return EXIT_SUCCESS;
 }
+
+//#include "main_poolminer_ex.cpp" //<--TODO
 
 /*********************************
 * and this is where it ends
