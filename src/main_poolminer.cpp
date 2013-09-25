@@ -108,7 +108,7 @@ public:
 		if (_blocks == NULL) return NULL;
 		CBlock* block = NULL;
 		block = new CBlock((_blocks+thread_id)->GetBlockHeader());
-		block->nTime = GetAdjustedTime();
+		block->nTime = GetAdjustedTime(); //TODO: check if this is the same time like before!?
 		//std::cout << "[WORKER" << thread_id << "] got_work block=" << block->GetHash().ToString().c_str() << std::endl;
 		return block;
 	}
