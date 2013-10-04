@@ -16,12 +16,13 @@
 /**************/
 
 static const unsigned int POOL_SHARE_MINIMUM = 6;
+extern size_t thread_num_stride;
 
 class CBlockProvider {
 public:
 	CBlockProvider() { }
 	~CBlockProvider() { }
-	virtual CBlock* getBlock(unsigned int thread_id) = 0;
+	virtual CBlock* getBlock(unsigned int thread_id, unsigned int last_time) = 0;
 	virtual void submitBlock(CBlock* block) = 0;
 };
 

@@ -4610,7 +4610,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
               return;
           pblock = &pblocktemplate->block;
           IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
-        } else if ((pblock = block_provider->getBlock(thread_id)) == NULL) { //server not reachable?
+        } else if ((pblock = block_provider->getBlock(thread_id, pblock == NULL ? 0 : pblock->nTime)) == NULL) { //server not reachable?
           MilliSleep(20000);
           continue;
         } else if (old_hash == pblock->GetHeaderHash()) {
@@ -4834,7 +4834,8 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
                 }
 
                 // Primecoin: update time and nonce
-                pblock->nTime = max(pblock->nTime, (unsigned int) GetAdjustedTime());
+                //pblock->nTime = max(pblock->nTime, (unsigned int) GetAdjustedTime());
+				pblock->nTime = max(pblock->nTime, (unsigned int)(((((size_t)GetAdjustedTime() + thread_num_stride) / thread_num_stride) * thread_num_stride) + (thread_id % thread_num_stride)));
                 pblock->nNonce++;
                 loop {
                     // Fast loop
@@ -4887,7 +4888,6 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
                 Primorial(nPrimorialMultiplier, mpzPrimorial);
             }
         }
-
     } }
     catch (boost::thread_interrupted)
     {
