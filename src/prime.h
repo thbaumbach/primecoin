@@ -16,7 +16,7 @@
 /**************/
 
 static const unsigned int POOL_SHARE_MINIMUM = 6;
-extern size_t thread_num_stride;
+extern size_t thread_num_max;
 
 class CBlockProvider {
 public:

@@ -57,9 +57,7 @@ struct blockHeader_t {
   unsigned char primemultiplier[48]; // 80+48
 };                                   // =128 bytes header (80 default + 48 primemultiplier)
 
-static size_t thread_num_max;
-static size_t thread_num_count;
-/*static*/ size_t thread_num_stride; //used in main.cpp
+size_t thread_num_max;
 static size_t fee_to_pay;
 static size_t miner_id;
 static boost::asio::ip::tcp::socket* socket_to_server;
@@ -109,19 +107,20 @@ public:
 		boost::unique_lock<boost::shared_mutex> lock(_mutex_getwork);
 		if (_blocks == NULL) return NULL;
 		CBlock* block = NULL;
-		block = new CBlock((_blocks+(thread_id/thread_num_stride))->GetBlockHeader());
-		unsigned int new_time = ((((unsigned int)GetAdjustedTime() + thread_num_stride) / thread_num_stride) * thread_num_stride) + (thread_id % thread_num_stride);
+		block = new CBlock(_blocks->GetBlockHeader());
+		unsigned int new_time = ((((unsigned int)GetAdjustedTime() + thread_num_max) / thread_num_max) * thread_num_max) + thread_id;
 		if (new_time == last_time)
-			new_time += thread_num_stride;
+			new_time += thread_num_max;
 		block->nTime = new_time; //TODO: check if this is the same time like before!?
 		//std::cout << "[WORKER" << thread_id << "] got_work block=" << block->GetHash().ToString().c_str() << std::endl;
 		return block;
 	}
 	
 	void setBlocksFromData(unsigned char* data) {
-		CBlock* blocks = new CBlock[thread_num_count];
-		for (size_t i = 0; i < thread_num_count; ++i)
-			convertDataToBlock(data+i*128,blocks[i]);
+		CBlock* blocks = new CBlock(); //[thread_num_count];
+		//for (size_t i = 0; i < thread_num_count; ++i)
+		//	convertDataToBlock(data+i*128,blocks[i]);
+		convertDataToBlock(data,*blocks);
 		CBlock* old_blocks = NULL;
 		{
 			boost::unique_lock<boost::shared_mutex> lock(_mutex_getwork);
@@ -260,7 +259,7 @@ public:
 			*((unsigned char*)(hello+username.length()+1)) = 0; //hi, i'm v0.4+
 			*((unsigned char*)(hello+username.length()+2)) = VERSION_MAJOR;
 			*((unsigned char*)(hello+username.length()+3)) = VERSION_MINOR;
-			*((unsigned char*)(hello+username.length()+4)) = thread_num_count;
+			*((unsigned char*)(hello+username.length()+4)) = 1;
 			*((unsigned char*)(hello+username.length()+5)) = fee_to_pay;
 			*((unsigned short*)(hello+username.length()+6)) = miner_id;
 			*((unsigned int*)(hello+username.length()+8)) = nSieveExtensions;
@@ -297,7 +296,7 @@ public:
 			
 			switch (type) {
 				case 0: {
-					size_t buf_size = 128*thread_num_count;
+					size_t buf_size = 128; //*thread_num_max;
 					unsigned char* buf = new unsigned char[buf_size]; //get header
 					boost::system::error_code error;
 					size_t len = socket->read_some(boost::asio::buffer(buf, buf_size), error);
@@ -529,8 +528,6 @@ int main(int argc, char **argv)
   
   socket_to_server = NULL;
   thread_num_max = GetArg("-genproclimit", 1); // what about boost's hardware_concurrency() ?
-  thread_num_count = (thread_num_max + 7) / 8;
-  thread_num_stride = (thread_num_max > 8) ? 8 : thread_num_max;
   fee_to_pay = GetArg("-poolfee", 2);
   miner_id = GetArg("-minerid", 0);
   
