@@ -127,7 +127,7 @@ public:
 			old_blocks = _blocks;
 			_blocks = blocks;
 		}
-		if (old_blocks != NULL) delete[] old_blocks;
+		if (old_blocks != NULL) delete old_blocks;
 	}
 	
 	void submitBlock(CBlock *block) {
