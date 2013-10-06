@@ -19,7 +19,7 @@
 
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 5
-#define VERSION_EXT "RC1"
+#define VERSION_EXT "RC2"
 
 #define MAX_THREADS 32
 
@@ -157,9 +157,10 @@ public:
 			while (socket_to_server == NULL && running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 100) //socket error was issued somewhere else
 				boost::this_thread::sleep(boost::posix_time::milliseconds(100));
 			if (running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 100) {
-				socket_to_server->write_some(boost::asio::buffer((unsigned char*)&blockraw, 128), submit_error);
-				if (submit_error)
-					std::cout << submit_error << " @ write_some_submit" << std::endl;
+				size_t len = boost::asio::write(*socket_to_server, boost::asio::buffer((unsigned char*)&blockraw, 128), boost::asio::transfer_all(), submit_error);
+				//socket_to_server->write_some(boost::asio::buffer((unsigned char*)&blockraw, 128), submit_error);
+				if (submit_error || len != 128)
+					std::cout << submit_error << " @ write_submit" << std::endl;
 			}
 		}
 		--submitting_share;
@@ -282,7 +283,8 @@ public:
 			{ //get the data header
 				unsigned char buf = 0; //get header
 				boost::system::error_code error;
-				size_t len = socket->read_some(boost::asio::buffer(&buf, 1), error);				
+				size_t len = boost::asio::read(*socket_to_server, boost::asio::buffer(&buf, 1), boost::asio::transfer_all(), error);
+				//size_t len = socket->read_some(boost::asio::buffer(&buf, 1), error);				
 				if (error == boost::asio::error::eof)
 					break; // Connection closed cleanly by peer.
 				else if (error) {
@@ -291,7 +293,7 @@ public:
 				}					
 				type = buf;
 				if (len != 1)
-					std::cout << "error on read_some1: " << len << " should be " << 1 << std::endl;					
+					std::cout << "error on read1: " << len << " should be " << 1 << std::endl;					
 			}
 			
 			switch (type) {
@@ -299,14 +301,15 @@ public:
 					size_t buf_size = 128; //*thread_num_max;
 					unsigned char* buf = new unsigned char[buf_size]; //get header
 					boost::system::error_code error;
-					size_t len = socket->read_some(boost::asio::buffer(buf, buf_size), error);
-					while (len < buf_size)
-						len += socket->read_some(boost::asio::buffer(buf+len, buf_size-len), error);
+					size_t len = boost::asio::read(*socket_to_server, boost::asio::buffer(buf, buf_size), boost::asio::transfer_all(), error);
+					//size_t len = socket->read_some(boost::asio::buffer(buf, buf_size), error);
+					//while (len < buf_size)
+					//	len += socket->read_some(boost::asio::buffer(buf+len, buf_size-len), error);
 					if (error == boost::asio::error::eof) {
 						done = true;
 						break; // Connection closed cleanly by peer.
 					} else if (error) {
-						std::cout << error << " @ read_some2a" << std::endl;
+						std::cout << error << " @ read2a" << std::endl;
 						done = true;
 						break;
 					}
@@ -314,7 +317,7 @@ public:
 						_bprovider->setBlocksFromData(buf);
 						std::cout << "[MASTER] work received" << std::endl;
 					} else
-						std::cout << "error on read_some2a: " << len << " should be " << buf_size << std::endl;					
+						std::cout << "error on read2a: " << len << " should be " << buf_size << std::endl;					
 					delete[] buf;					
 					CBlockIndex *pindexOld = pindexBest;
 					pindexBest = new CBlockIndex(); //=notify worker (this could need a efficient alternative)
@@ -325,14 +328,15 @@ public:
 					size_t buf_size = 4;
 					int buf; //get header
 					boost::system::error_code error;
-					size_t len = socket->read_some(boost::asio::buffer(&buf, buf_size), error);				
-					while (len < buf_size)
-						len += socket->read_some(boost::asio::buffer(&buf+len, buf_size-len), error);
+					size_t len = boost::asio::read(*socket_to_server, boost::asio::buffer(&buf, buf_size), boost::asio::transfer_all(), error);
+					//size_t len = socket->read_some(boost::asio::buffer(&buf, buf_size), error);				
+					//while (len < buf_size)
+					//	len += socket->read_some(boost::asio::buffer(&buf+len, buf_size-len), error);
 					if (error == boost::asio::error::eof) {
 						done = true;
 						break; // Connection closed cleanly by peer.
 					} else if (error) {
-						std::cout << error << " @ read_some2b" << std::endl;
+						std::cout << error << " @ read2b" << std::endl;
 						done = true;
 						break;
 					}
@@ -346,8 +350,8 @@ public:
 							reject_counter = 0;
 						else
 							reject_counter++;
-						if (reject_counter >= 4) {
-							std::cout << "too many rejects (4), forcing reconnect." << std::endl;					
+						if (reject_counter >= 3) {
+							std::cout << "too many rejects (3), forcing reconnect." << std::endl;					
 							socket->close();
 							done = true;
 						}
@@ -356,7 +360,7 @@ public:
 						else
 							statistics[retval]++;
 					} else
-						std::cout << "error on read_some2b: " << len << " should be " << buf_size << std::endl;					
+						std::cout << "error on read2b: " << len << " should be " << buf_size << std::endl;					
 				} break;
 				case 2: {
 					//PING-PONG EVENT, nothing to do
@@ -528,7 +532,7 @@ int main(int argc, char **argv)
   
   socket_to_server = NULL;
   thread_num_max = GetArg("-genproclimit", 1); // what about boost's hardware_concurrency() ?
-  fee_to_pay = GetArg("-poolfee", 2);
+  fee_to_pay = GetArg("-poolfee", 3);
   miner_id = GetArg("-minerid", 0);
   
   if (thread_num_max == 0 || thread_num_max > MAX_THREADS)
