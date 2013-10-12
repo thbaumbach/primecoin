@@ -18,8 +18,8 @@
 #include <boost/asio.hpp>
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 5
-#define VERSION_EXT "RC2"
+#define VERSION_MINOR 6
+#define VERSION_EXT "RC1"
 
 #define MAX_THREADS 32
 
@@ -153,17 +153,28 @@ public:
 		boost::posix_time::ptime submit_start = boost::posix_time::second_clock::universal_time();
 		boost::system::error_code submit_error = boost::asio::error::host_not_found; //run at least 1 time
 		++submitting_share;
-		while (submit_error && running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 100) {
-			while (socket_to_server == NULL && running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 100) //socket error was issued somewhere else
+		while (submit_error && running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 80) {
+			while (socket_to_server == NULL && running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 80) //socket error was issued somewhere else
 				boost::this_thread::sleep(boost::posix_time::milliseconds(100));
-			if (running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 100) {
-				size_t len = boost::asio::write(*socket_to_server, boost::asio::buffer((unsigned char*)&blockraw, 128), boost::asio::transfer_all(), submit_error);
+			if (running && (boost::posix_time::second_clock::universal_time() - submit_start).total_seconds() < 80) {
+				boost::asio::write(*socket_to_server, boost::asio::buffer((unsigned char*)&blockraw, 128), boost::asio::transfer_at_least(1), submit_error); //FaF
+				//size_t len = boost::asio::write(*socket_to_server, boost::asio::buffer((unsigned char*)&blockraw, 128), boost::asio::transfer_all(), submit_error);
 				//socket_to_server->write_some(boost::asio::buffer((unsigned char*)&blockraw, 128), submit_error);
-				if (submit_error || len != 128)
+				if (submit_error)
 					std::cout << submit_error << " @ write_submit" << std::endl;
 			}
 		}
 		--submitting_share;
+	}
+	
+	void forceReconnect() {
+		std::cout << "force reconnect if possible!" << std::endl;
+		if (socket_to_server != NULL) {
+			boost::system::error_code close_error;
+			socket_to_server->close(close_error);
+			if (close_error)
+				std::cout << close_error << " @ close" << std::endl;
+		}
 	}
 
 protected:
@@ -231,6 +242,7 @@ public:
     boost::asio::ip::tcp::resolver::iterator endpoint;
 	boost::asio::ip::tcp::resolver::iterator end;
 	boost::asio::ip::tcp::no_delay nd_option(true);
+	boost::asio::socket_base::keep_alive ka_option(true);
 	
 	while (running) {
 		endpoint = resolver.resolve(query);
@@ -245,6 +257,7 @@ public:
 		  std::cout << "connecting to " << tcp_ep << std::endl;
 		}
 		socket->set_option(nd_option);
+		socket->set_option(ka_option);
 		
 		if (error_socket) {
 			std::cout << error_socket << std::endl;
@@ -351,7 +364,7 @@ public:
 						else
 							reject_counter++;
 						if (reject_counter >= 3) {
-							std::cout << "too many rejects (3), forcing reconnect." << std::endl;					
+							std::cout << "too many rejects (3) in a row, forcing reconnect." << std::endl;					
 							socket->close();
 							done = true;
 						}
@@ -372,7 +385,7 @@ public:
 		}
 		
 		socket_to_server = NULL; //TODO: lock/mutex
-		for (int i = 0; i < 100 && submitting_share < 1; ++i)
+		for (int i = 0; i < 50 && submitting_share < 1; ++i) //wait <5 seconds until reconnect (force reconnect when share is waiting to be submitted)
 			boost::this_thread::sleep(boost::posix_time::milliseconds(100));
 	}
   }

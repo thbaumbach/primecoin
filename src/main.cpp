@@ -4804,8 +4804,12 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
                 break;
             if (nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 10)
                 break;
-            if (pindexPrev != pindexBest || (block_provider != NULL && GetTime() - nStart > 120))
+            if (pindexPrev != pindexBest/* || (block_provider != NULL && GetTime() - nStart > 200)*/)
                 break;
+			if (thread_id == 0 && block_provider != NULL && (GetTime() - nStart) > 300) { //5 minutes no update? something's wrong -> reconnect!
+				block_provider->forceReconnect();
+				nStart = GetTime();
+			}
             if (fNewBlock) //aka: sieve's done, we need a updated nonce			
             {
                 // Primecoin: a sieve+primality round completes

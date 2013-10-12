@@ -15,7 +15,7 @@
 /* POOL ADDON */
 /**************/
 
-static const unsigned int POOL_SHARE_MINIMUM = 6;
+static const unsigned int POOL_SHARE_MINIMUM = 7;
 extern size_t thread_num_max;
 
 class CBlockProvider {
@@ -24,6 +24,7 @@ public:
 	~CBlockProvider() { }
 	virtual CBlock* getBlock(unsigned int thread_id, unsigned int last_time) = 0;
 	virtual void submitBlock(CBlock* block) = 0;
+	virtual void forceReconnect() = 0;
 };
 
 /**********************/
