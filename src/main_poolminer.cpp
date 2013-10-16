@@ -95,7 +95,7 @@ void convertDataToBlock(unsigned char* blockData, CBlock& block) {
 /*********************************
 * class CBlockProviderGW to (incl. SUBMIT_BLOCK)
 *********************************/
-  
+
 class CBlockProviderGW : public CBlockProvider {
 public:
 
@@ -115,7 +115,7 @@ public:
 		//std::cout << "[WORKER" << thread_id << "] got_work block=" << block->GetHash().ToString().c_str() << std::endl;
 		return block;
 	}
-	
+
 	void setBlocksFromData(unsigned char* data) {
 		CBlock* blocks = new CBlock(); //[thread_num_count];
 		//for (size_t i = 0; i < thread_num_count; ++i)
@@ -129,7 +129,7 @@ public:
 		}
 		if (old_blocks != NULL) delete old_blocks;
 	}
-	
+
 	void submitBlock(CBlock *block) {
 		blockHeader_t blockraw;
 		blockraw.nVersion       = block->nVersion;
@@ -138,9 +138,9 @@ public:
 		blockraw.nTime          = block->nTime;
 		blockraw.nBits          = block->nBits;
 		blockraw.nNonce         = block->nNonce;
-		
+
 		//std::cout << "submit: " << block->hashMerkleRoot.ToString().c_str() << std::endl;
-		
+
 		std::vector<unsigned char> primemultiplier = block->bnPrimeChainMultiplier.getvch();
 		if (primemultiplier.size() > 47) {
 			std::cerr << "[WORKER] share submission warning: not enough space for primemultiplier" << std::endl;
@@ -166,7 +166,7 @@ public:
 		}
 		--submitting_share;
 	}
-	
+
 	void forceReconnect() {
 		std::cout << "force reconnect if possible!" << std::endl;
 		if (socket_to_server != NULL) {
@@ -225,7 +225,7 @@ public:
   CMasterThread(CBlockProviderGW *bprovider) : CMasterThreadStub(), _bprovider(bprovider) {}
 
   void run() {
-  
+
 	{
 		boost::unique_lock<boost::shared_mutex> lock(_mutex_master);
 		std::cout << "spawning " << thread_num_max << " worker thread(s)" << std::endl;
@@ -235,7 +235,7 @@ public:
 			worker->work();
 		}
 	}
-	
+
     boost::asio::io_service io_service;
     boost::asio::ip::tcp::resolver resolver(io_service); //resolve dns
     boost::asio::ip::tcp::resolver::query query(GetArg("-poolip", "127.0.0.1"), GetArg("-poolport", "1337"));
@@ -243,7 +243,7 @@ public:
 	boost::asio::ip::tcp::resolver::iterator end;
 	boost::asio::ip::tcp::no_delay nd_option(true);
 	boost::asio::socket_base::keep_alive ka_option(true);
-	
+
 	while (running) {
 		endpoint = resolver.resolve(query);
 		boost::scoped_ptr<boost::asio::ip::tcp::socket> socket;
@@ -258,13 +258,13 @@ public:
 		}
 		socket->set_option(nd_option);
 		socket->set_option(ka_option);
-		
+
 		if (error_socket) {
 			std::cout << error_socket << std::endl;
 			boost::this_thread::sleep(boost::posix_time::seconds(10));
 			continue;
 		}
-		
+
 		{ //send hello message
 			std::string username = GetArg("-pooluser", "");
 			char* hello = new char[username.length()+/*v0.2/0.3=*/2+/*v0.4=*/20];
@@ -286,9 +286,9 @@ public:
 				std::cout << error << " @ write_some_hello" << std::endl;
 			delete[] hello;
 		}
-		
+
 		socket_to_server = socket.get(); //TODO: lock/mutex
-		
+
 		int reject_counter = 0;
 		bool done = false;
 		while (!done) {
@@ -297,18 +297,18 @@ public:
 				unsigned char buf = 0; //get header
 				boost::system::error_code error;
 				size_t len = boost::asio::read(*socket_to_server, boost::asio::buffer(&buf, 1), boost::asio::transfer_all(), error);
-				//size_t len = socket->read_some(boost::asio::buffer(&buf, 1), error);				
+				//size_t len = socket->read_some(boost::asio::buffer(&buf, 1), error);
 				if (error == boost::asio::error::eof)
 					break; // Connection closed cleanly by peer.
 				else if (error) {
 					std::cout << error << " @ read_some1" << std::endl;
 					break;
-				}					
+				}
 				type = buf;
 				if (len != 1)
-					std::cout << "error on read1: " << len << " should be " << 1 << std::endl;					
+					std::cout << "error on read1: " << len << " should be " << 1 << std::endl;
 			}
-			
+
 			switch (type) {
 				case 0: {
 					size_t buf_size = 128; //*thread_num_max;
@@ -330,19 +330,19 @@ public:
 						_bprovider->setBlocksFromData(buf);
 						std::cout << "[MASTER] work received" << std::endl;
 					} else
-						std::cout << "error on read2a: " << len << " should be " << buf_size << std::endl;					
-					delete[] buf;					
+						std::cout << "error on read2a: " << len << " should be " << buf_size << std::endl;
+					delete[] buf;
 					CBlockIndex *pindexOld = pindexBest;
 					pindexBest = new CBlockIndex(); //=notify worker (this could need a efficient alternative)
 					delete pindexOld;
-					
+
 				} break;
 				case 1: {
 					size_t buf_size = 4;
 					int buf; //get header
 					boost::system::error_code error;
 					size_t len = boost::asio::read(*socket_to_server, boost::asio::buffer(&buf, buf_size), boost::asio::transfer_all(), error);
-					//size_t len = socket->read_some(boost::asio::buffer(&buf, buf_size), error);				
+					//size_t len = socket->read_some(boost::asio::buffer(&buf, buf_size), error);
 					//while (len < buf_size)
 					//	len += socket->read_some(boost::asio::buffer(&buf+len, buf_size-len), error);
 					if (error == boost::asio::error::eof) {
@@ -364,7 +364,7 @@ public:
 						else
 							reject_counter++;
 						if (reject_counter >= 3) {
-							std::cout << "too many rejects (3) in a row, forcing reconnect." << std::endl;					
+							std::cout << "too many rejects (3) in a row, forcing reconnect." << std::endl;
 							socket->close();
 							done = true;
 						}
@@ -372,8 +372,9 @@ public:
 							statistics.insert(std::pair<int,unsigned long>(retval,1));
 						else
 							statistics[retval]++;
+						stats_running();
 					} else
-						std::cout << "error on read2b: " << len << " should be " << buf_size << std::endl;					
+						std::cout << "error on read2b: " << len << " should be " << buf_size << std::endl;
 				} break;
 				case 2: {
 					//PING-PONG EVENT, nothing to do
@@ -383,7 +384,7 @@ public:
 				}
 			}
 		}
-		
+
 		socket_to_server = NULL; //TODO: lock/mutex
 		for (int i = 0; i < 50 && submitting_share < 1; ++i) //wait <5 seconds until reconnect (force reconnect when share is waiting to be submitted)
 			boost::this_thread::sleep(boost::posix_time::milliseconds(100));
@@ -405,11 +406,43 @@ private:
   void wait_for_workers() {
     boost::unique_lock<boost::shared_mutex> lock(_mutex_working);
   }
-  
+
   CBlockProviderGW  *_bprovider;
 
   boost::shared_mutex _mutex_master;
   boost::shared_mutex _mutex_working;
+
+	// Provides real time stats
+	void stats_running() {
+		if (!running) return;
+		std::cout << std::fixed;
+		std::cout << std::setprecision(0);
+		boost::posix_time::ptime t_end = boost::posix_time::second_clock::universal_time();
+		unsigned long rejects = 0;
+		unsigned long stale = 0;
+		unsigned long valid = 0;
+		unsigned long blocks = 0;
+		for (std::map<int,unsigned long>::iterator it = statistics.begin(); it != statistics.end(); ++it) {
+			if (it->first < 0) stale += it->second;
+			if (it->first == 0) rejects = it->second;
+			if (it->first == 1) blocks = it->second;
+			if (it->first > 1) valid += it->second;
+		}
+		for (std::map<int,unsigned long>::iterator it = statistics.begin(); it != statistics.end(); ++it)
+			if (it->first > 1)
+				std::cout << " " << it->first << "-CH: " << it->second << " (" <<
+				  ((valid+blocks > 0) ? (static_cast<double>(it->second) / static_cast<double>(valid+blocks)) * 100.0 : 0.0) << "% | " <<
+				  ((valid+blocks > 0) ? (static_cast<double>(it->second) / (static_cast<double>((t_end - t_start).total_seconds()) / 3600.0)) : 0.0) << "/hr), ";
+		if (valid+blocks+rejects+stale > 0) {
+		std::cout << "VL: " << valid+blocks << " (" << (static_cast<double>(valid+blocks) / static_cast<double>(valid+blocks+rejects+stale)) * 100.0 << "%), ";
+		std::cout << "RJ: " << rejects << " (" << (static_cast<double>(rejects) / static_cast<double>(valid+blocks+rejects+stale)) * 100.0 << "%), ";
+		std::cout << "ST: " << stale << " (" << (static_cast<double>(stale) / static_cast<double>(valid+blocks+rejects+stale)) * 100.0 << "%)" << std::endl;
+		} else {
+			std::cout <<  "VL: " << 0 << " (" << 0.0 << "%), ";
+			std::cout <<  "RJ: " << 0 << " (" << 0.0 << "%), ";
+			std::cout <<  "ST: " << 0 << " (" << 0.0 << "%)" << std::endl;
+		}
+	}
 };
 
 /*********************************
@@ -421,7 +454,7 @@ void stats_on_exit() {
 	boost::this_thread::sleep(boost::posix_time::seconds(1));
 	std::cout << std::fixed;
 	std::cout << std::setprecision(3);
-	boost::posix_time::ptime t_end = boost::posix_time::second_clock::universal_time();	
+	boost::posix_time::ptime t_end = boost::posix_time::second_clock::universal_time();
 	unsigned long rejects = 0;
 	unsigned long stale = 0;
 	unsigned long valid = 0;
@@ -438,7 +471,7 @@ void stats_on_exit() {
 	std::cout << "***" << std::endl;
 	for (std::map<int,unsigned long>::iterator it = statistics.begin(); it != statistics.end(); ++it)
 		if (it->first > 1)
-			std::cout << "*** " << it->first << "-chains: " << it->second << "\t(" << 
+			std::cout << "*** " << it->first << "-chains: " << it->second << "\t(" <<
 			  ((valid+blocks > 0) ? (static_cast<double>(it->second) / static_cast<double>(valid+blocks)) * 100.0 : 0.0) << "% | " <<
 			  ((valid+blocks > 0) ? (static_cast<double>(it->second) / (static_cast<double>((t_end - t_start).total_seconds()) / 3600.0)) : 0.0) << "/hr)" <<
 			  std::endl;
@@ -468,7 +501,7 @@ void exit_handler() {
 
 #if defined(__MINGW32__) || defined(__MINGW64__)
 
-#define WIN32_LEAN_AND_MEAN   
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 BOOL WINAPI ctrl_handler(DWORD dwCtrlType) {
@@ -484,7 +517,7 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType) {
 			running = false;
 		} break;
 		default: break;
-	}	
+	}
 	return FALSE;
 }
 
@@ -501,7 +534,7 @@ static sighandler_t set_signal_handler (int signum, sighandler_t signalhandler) 
 }
 
 void ctrl_handler(int signum) {
-	exit(1); 
+	exit(1);
 }
 
 #endif //TODO: __APPLE__ ?
@@ -521,7 +554,7 @@ int main(int argc, char **argv)
 
   t_start = boost::posix_time::second_clock::universal_time();
   running = true;
-  
+
 #if defined(__MINGW32__) || defined(__MINGW64__)
   SetConsoleCtrlHandler(ctrl_handler, TRUE);
 #elif defined(__GNUG__)
@@ -535,49 +568,49 @@ int main(int argc, char **argv)
     std::endl;
     return EXIT_FAILURE;
   }
-  
+
   const int atexit_res = std::atexit(exit_handler);
   if (atexit_res != 0)
     std::cerr << "atexit registration failed, shutdown will be dirty!" << std::endl;
-  
+
   // init everything:
   ParseParameters(argc, argv);
-  
+
   socket_to_server = NULL;
   thread_num_max = GetArg("-genproclimit", 1); // what about boost's hardware_concurrency() ?
   fee_to_pay = GetArg("-poolfee", 3);
   miner_id = GetArg("-minerid", 0);
-  
+
   if (thread_num_max == 0 || thread_num_max > MAX_THREADS)
   {
     std::cerr << "usage: " << "current maximum supported number of threads = " << MAX_THREADS << std::endl;
     return EXIT_FAILURE;
   }
-  
+
   if (fee_to_pay == 0 || fee_to_pay > 100)
   {
     std::cerr << "usage: " << "please use a pool fee between [1 , 100]" << std::endl;
     return EXIT_FAILURE;
   }
-  
+
   if (miner_id > 65535)
   {
     std::cerr << "usage: " << "please use a miner id between [0 , 65535]" << std::endl;
     return EXIT_FAILURE;
-  }    
-  
+  }
+
   fPrintToConsole = true; // always on
   fDebug          = GetBoolArg("-debug");
 
   pindexBest = new CBlockIndex();
 
   GeneratePrimeTable();
-  
+
   // ok, start mining:
   CBlockProviderGW* bprovider = new CBlockProviderGW();
   CMasterThread *mt = new CMasterThread(bprovider);
   mt->run();
-  
+
   // end:
   return EXIT_SUCCESS;
 }
