@@ -428,9 +428,10 @@ private:
 			if (it->first == 1) blocks = it->second;
 			if (it->first > 1) valid += it->second;
 		}
+		std::cout << "[STATS] " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTimeMillis() / 1000).c_str() << " | ";
 		for (std::map<int,unsigned long>::iterator it = statistics.begin(); it != statistics.end(); ++it)
 			if (it->first > 1)
-				std::cout << "[STATS] " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTimeMillis() / 1000).c_str() << " | " << it->first << "-CH: " << it->second << " (" <<
+				std::cout << it->first << "-CH: " << it->second << " (" <<
 				  ((valid+blocks > 0) ? (static_cast<double>(it->second) / static_cast<double>(valid+blocks)) * 100.0 : 0.0) << "% | " <<
 				  ((valid+blocks > 0) ? (static_cast<double>(it->second) / (static_cast<double>((t_end - t_start).total_seconds()) / 3600.0)) : 0.0) << "/h), ";
 		if (valid+blocks+rejects+stale > 0) {
@@ -467,13 +468,13 @@ void stats_on_exit() {
 	}
 	std::cout << std::endl;
 	std::cout << "********************************************" << std::endl;
-	std::cout << "*** running time: " << static_cast<double>((t_end - t_start).total_seconds()) / 3600.0 << "hrs" << std::endl;
+	std::cout << "*** running time: " << static_cast<double>((t_end - t_start).total_seconds()) / 3600.0 << "h" << std::endl;
 	std::cout << "***" << std::endl;
 	for (std::map<int,unsigned long>::iterator it = statistics.begin(); it != statistics.end(); ++it)
 		if (it->first > 1)
 			std::cout << "*** " << it->first << "-chains: " << it->second << "\t(" <<
 			  ((valid+blocks > 0) ? (static_cast<double>(it->second) / static_cast<double>(valid+blocks)) * 100.0 : 0.0) << "% | " <<
-			  ((valid+blocks > 0) ? (static_cast<double>(it->second) / (static_cast<double>((t_end - t_start).total_seconds()) / 3600.0)) : 0.0) << "/hr)" <<
+			  ((valid+blocks > 0) ? (static_cast<double>(it->second) / (static_cast<double>((t_end - t_start).total_seconds()) / 3600.0)) : 0.0) << "/h)" <<
 			  std::endl;
 	if (valid+blocks+rejects+stale > 0) {
 	std::cout << "***" << std::endl;
