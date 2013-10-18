@@ -5,6 +5,7 @@ file COPYING or http://www.opensource.org/licenses/mit-license.php.
 This product includes software developed by the OpenSSL Project for use in the [OpenSSL Toolkit](http://www.openssl.org/). This product includes
 cryptographic software written by Eric Young ([eay@cryptsoft.com](mailto:eay@cryptsoft.com)), and UPnP software written by Thomas Bernard.
 
+
 UNIX BUILD NOTES
 ====================
 
@@ -14,8 +15,6 @@ To Build
 	cd src/
 	make -f makefile.unix		# Headless bitcoin
 
-See readme-qt.rst for instructions on building Bitcoin-Qt, the graphical user interface.
-
 Dependencies
 ---------------------
 
@@ -24,6 +23,7 @@ Dependencies
  libssl      SSL Support       Secure communications
  libdb4.8    Berkeley DB       Blockchain & wallet storage
  libboost    Boost             C++ Library
+ libgmp      Gnu MP            Multiprecision arithmetic library developers tools
  miniupnpc   UPnP Support      Optional firewall-jumping support
 
 [miniupnpc](http://miniupnp.free.fr/) may be used for UPnP port mapping.  It can be downloaded from [here](
@@ -48,15 +48,16 @@ Licenses of statically linked libraries:
 -  GCC           4.3.3
 -  OpenSSL       1.0.1c
 -  Berkeley DB   4.8.30.NC
--  Boost         1.37
+-  Boost         1.48
+-  GMP           5.0.2
 -  miniupnpc     1.6
+
 
 Dependency Build Instructions: Ubuntu & Debian
 ----------------------------------------------
 Build requirements:
 
-	sudo apt-get install build-essential
-	sudo apt-get install libssl-dev
+	sudo apt-get install build-essential libssl-dev
 
 for Ubuntu 12.04:
 
@@ -69,9 +70,12 @@ for Ubuntu 12.04:
 
 for other Ubuntu & Debian:
 
+	sudo apt-get install libgmp-dev
 	sudo apt-get install libdb4.8-dev
 	sudo apt-get install libdb4.8++-dev
-	sudo apt-get install libboost1.37-dev
+	sudo apt-get install libboost1.48-dev
+	sudo apt-get install libboost-timer1.48-dev
+	sudo apt-get install libboost-chrono1.48-dev
  (If using Boost 1.37, append -mt to the boost libraries in the makefile)
 
 Optional:
