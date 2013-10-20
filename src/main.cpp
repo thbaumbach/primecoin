@@ -2203,7 +2203,7 @@ bool CBlock::AcceptBlock(CValidationState &state, CDiskBlockPos *dbp)
 // Get block work value for main chain protocol
 CBigNum CBlockIndex::GetBlockWork() const
 {
-    // Primecoin: 
+    // Primecoin:
     // Difficulty multiplier of extra prime is estimated by nWorkTransitionRatio
     // Difficulty multiplier of fractional is estimated by
     //   r = 1/TransitionRatio
@@ -4592,7 +4592,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
     CBlock *pblock = NULL;
 	uint256 old_hash;
 	unsigned int old_nonce = 0;
-    
+
     try { loop {
         while (block_provider == NULL && vNodes.empty())
             MilliSleep(1000);
@@ -4602,7 +4602,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
         //
         unsigned int nTransactionsUpdatedLast = nTransactionsUpdated;
         CBlockIndex* pindexPrev = pindexBest;
-          
+
         auto_ptr<CBlockTemplate> pblocktemplate;
         if (block_provider == NULL) {
           pblocktemplate = auto_ptr<CBlockTemplate>(CreateNewBlock(reservekey));
@@ -4711,7 +4711,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
 				old_nonce = pblock->nNonce + 1;
                 break;
             }
-            
+
             ///
             /// ENABLE the following code, if you need data for the perftool
             ///
@@ -4720,23 +4720,23 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
               static CCriticalSection cs;
               {
                 LOCK(cs);
-                
+
                 std::ofstream output_file("miner_data");
                 std::ofstream output_file_block("miner_data.blk", std::ofstream::out | std::ofstream::binary);
-                
+
                 ::Serialize(output_file_block, *pblock, 0, 0); //writeblock
-                
+
                 output_file << mpzFixedMultiplier.get_str(10) << std::endl;
                 output_file << fNewBlock << std::endl;
                 output_file << nTriedMultiplier << std::endl;
                 output_file << nPrimorialMultiplier << std::endl;
                 output_file << mpzHash.get_str(10) << std::endl;
-                
+
                 output_file.close();
                 output_file_block.close();
               }
             }*/
-            
+
             nRoundTests += nTests;
             nRoundPrimesHit += nPrimesHit;
 
@@ -4776,7 +4776,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
                     {
                         double dPrimesPerMinute = 60000.0 * nPrimeCounter / (nMillisNow - nHPSTimerStart);
                         dPrimesPerSec = dPrimesPerMinute / 60.0;
-                        double dTestsPerMinute = 60000.0 * nTestCounter / (nMillisNow - nHPSTimerStart);
+                        double dTestsPerSec = 1000.0 * nTestCounter / (nMillisNow - nHPSTimerStart);
                         dChainsPerMinute = 60000.0 * nChainCounter / (nMillisNow - nHPSTimerStart);
                         dChainsPerDay = 86400000.0 * dChainExpected / (GetTimeMillis() - nHPSTimerStart);
                         nHPSTimerStart = nMillisNow;
@@ -4788,12 +4788,12 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
                         if (nMillisNow - nLogTime > 59000)
                         {
                             nLogTime = nMillisNow;
-                            printf("%s primemeter %9.0f prime/h %9.0f test/h %4.0f %d-chains/h %3.6f chain/d\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerMinute * 60.0, dTestsPerMinute * 60.0, dChainsPerMinute * 60.0, nStatsChainLength, dChainsPerDay);
+                            printf("[STATS] %s | %4.0f primes/s, %4.0f tests/s, %4.0f %d-chains/h, %3.3f chains/d\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerSec, dTestsPerSec, dChainsPerMinute * 60.0, nStatsChainLength, dChainsPerDay);
                         }
                     }
                 }
             }
-			
+
 			old_nonce = pblock->nNonce;
 
             // Check for stop or if block needs to be rebuilt
@@ -4810,7 +4810,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
 				block_provider->forceReconnect();
 				nStart = GetTime();
 			}
-            if (fNewBlock) //aka: sieve's done, we need a updated nonce			
+            if (fNewBlock) //aka: sieve's done, we need a updated nonce
             {
                 // Primecoin: a sieve+primality round completes
                 // Primecoin: estimate time to block
@@ -4819,7 +4819,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
                 // Make sure the estimated time is very high if only 0 primes were found
                 if (nRoundPrimesHit == 0)
                     nCalcRoundTests *= 1000;
-                int64 nRoundTime = (GetTimeMicros() - nPrimeTimerStart); 
+                int64 nRoundTime = (GetTimeMicros() - nPrimeTimerStart);
                 dTimeExpected = (double) nRoundTime / nCalcRoundTests;
                 double dRoundChainExpected = (double) nRoundTests;
                 for (unsigned int n = 0, nTargetLength = TargetGetLength(pblock->nBits); n < nTargetLength; n++)
@@ -4839,7 +4839,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
 
                 // Primecoin: update time and nonce
                 //pblock->nTime = max(pblock->nTime, (unsigned int) GetAdjustedTime());
-				pblock->nTime = max(pblock->nTime, (unsigned int)(((((size_t)GetAdjustedTime() + thread_num_max) / thread_num_max) * thread_num_max) + thread_id));
+                pblock->nTime = max(pblock->nTime, (unsigned int)(((((size_t)GetAdjustedTime() + thread_num_max) / thread_num_max) * thread_num_max) + thread_id));
                 pblock->nNonce++;
                 loop {
                     // Fast loop
