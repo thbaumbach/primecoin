@@ -19,7 +19,7 @@
 
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 6
-#define VERSION_EXT "RC2"
+#define VERSION_EXT "RC3"
 
 #define MAX_THREADS 32
 
