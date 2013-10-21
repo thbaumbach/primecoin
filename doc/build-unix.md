@@ -61,9 +61,10 @@ but using these will break binary wallet compatibility, and is not recommended.
 
 If you have trouble with libboost dependencies, make sure these are installed:
 
-	sudo apt-get install libboost-timer1.48-dev libboost-chrono1.48-dev libboost-filesystem1.48-dev libboost-system1.48-dev libboost-program-options1.48-dev libboost-thread1.48-dev
+	sudo apt-get install libboost-chrono1.48-dev libboost-filesystem1.48-dev libboost-system1.48-dev libboost-program-options1.48-dev libboost-thread1.48-dev
 
-(If using Boost 1.37, append -mt to the boost libraries in the makefile)
+(If using Boost 1.37, append -mt to the boost libraries in the makefile,
+use `apt-cache search libboost` to find out which version is available for your system.)
 
 Optional:
 
