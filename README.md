@@ -1,5 +1,5 @@
-Xolo's Primecoin High Performance Pool Miner
-============================================
+Xolo's Primecoin Pool Miner
+===========================
 
 This is a pool mining version of primecoin, the so called xolominer,
 based on mikaelh's high performance version of Sunny King's Primecoin tree.
