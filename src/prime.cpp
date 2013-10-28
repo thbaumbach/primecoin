@@ -14,6 +14,7 @@ std::vector<unsigned int> vPrimes;
 unsigned int nSieveSize = nDefaultSieveSize;
 unsigned int nSievePercentage = nDefaultSievePercentage;
 unsigned int nSieveExtensions = nDefaultSieveExtensions;
+unsigned int pool_share_minimum = (unsigned int)GetArg("-poolshare", 7);
 
 static unsigned int int_invert(unsigned int a, unsigned int nPrime);
 
@@ -712,7 +713,7 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
         }
     }
 
-    return (!poolmining && (nChainLength >= nBits)) || (poolmining && (TargetGetLength(nChainLength) >= POOL_SHARE_MINIMUM));
+    return (!poolmining && (nChainLength >= nBits)) || (poolmining && (TargetGetLength(nChainLength) >= pool_share_minimum));
 }
 
 // Sieve for mining
