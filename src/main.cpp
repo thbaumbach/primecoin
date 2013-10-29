@@ -4839,7 +4839,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
 
                 // Primecoin: update time and nonce
                 //pblock->nTime = max(pblock->nTime, (unsigned int) GetAdjustedTime());
-                pblock->nTime = max(pblock->nTime, (unsigned int)(((((size_t)GetAdjustedTime() + thread_num_max) / thread_num_max) * thread_num_max) + thread_id));
+                pblock->nTime = max(pblock->nTime, block_provider->GetAdjustedTimeWithOffset(thread_id));
                 pblock->nNonce++;
                 loop {
                     // Fast loop

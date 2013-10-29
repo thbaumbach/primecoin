@@ -18,8 +18,8 @@
 #include <boost/asio.hpp>
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 6
-#define VERSION_EXT "RC3"
+#define VERSION_MINOR 7
+#define VERSION_EXT "RC1"
 
 #define MAX_THREADS 32
 
@@ -99,16 +99,20 @@ void convertDataToBlock(unsigned char* blockData, CBlock& block) {
 class CBlockProviderGW : public CBlockProvider {
 public:
 
-	CBlockProviderGW() : CBlockProvider(), _blocks(NULL) {}
+	CBlockProviderGW() : CBlockProvider(), nTime_offset(0), _blocks(NULL) {}
 
 	virtual ~CBlockProviderGW() { /* TODO */ }
+	
+	virtual unsigned int GetAdjustedTimeWithOffset(unsigned int thread_id) {
+		return nTime_offset + ((((unsigned int)GetAdjustedTime() + thread_num_max) / thread_num_max) * thread_num_max) + thread_id;
+	}
 
 	virtual CBlock* getBlock(unsigned int thread_id, unsigned int last_time) {
 		boost::unique_lock<boost::shared_mutex> lock(_mutex_getwork);
 		if (_blocks == NULL) return NULL;
 		CBlock* block = NULL;
 		block = new CBlock(_blocks->GetBlockHeader());
-		unsigned int new_time = ((((unsigned int)GetAdjustedTime() + thread_num_max) / thread_num_max) * thread_num_max) + thread_id;
+		unsigned int new_time = GetAdjustedTimeWithOffset(thread_id);
 		if (new_time == last_time)
 			new_time += thread_num_max;
 		block->nTime = new_time; //TODO: check if this is the same time like before!?
@@ -121,6 +125,11 @@ public:
 		//for (size_t i = 0; i < thread_num_count; ++i)
 		//	convertDataToBlock(data+i*128,blocks[i]);
 		convertDataToBlock(data,*blocks);
+		//
+		unsigned int nTime_local = GetAdjustedTime();
+		unsigned int nTime_server = blocks->nTime;
+		nTime_offset = nTime_local > nTime_server ? 0 : (nTime_server-nTime_local);		
+		//
 		CBlock* old_blocks = NULL;
 		{
 			boost::unique_lock<boost::shared_mutex> lock(_mutex_getwork);
@@ -160,8 +169,8 @@ public:
 				boost::asio::write(*socket_to_server, boost::asio::buffer((unsigned char*)&blockraw, 128), boost::asio::transfer_at_least(1), submit_error); //FaF
 				//size_t len = boost::asio::write(*socket_to_server, boost::asio::buffer((unsigned char*)&blockraw, 128), boost::asio::transfer_all(), submit_error);
 				//socket_to_server->write_some(boost::asio::buffer((unsigned char*)&blockraw, 128), submit_error);
-				if (submit_error)
-					std::cout << submit_error << " @ write_submit" << std::endl;
+				//if (submit_error)
+				//	std::cout << submit_error << " @ write_submit" << std::endl;
 			}
 		}
 		--submitting_share;
@@ -172,12 +181,13 @@ public:
 		if (socket_to_server != NULL) {
 			boost::system::error_code close_error;
 			socket_to_server->close(close_error);
-			if (close_error)
-				std::cout << close_error << " @ close" << std::endl;
+			//if (close_error)
+			//	std::cout << close_error << " @ close" << std::endl;
 		}
 	}
 
 protected:
+	unsigned int nTime_offset;
 	boost::shared_mutex _mutex_getwork;
 	CBlock* _blocks;
 };
@@ -267,23 +277,26 @@ public:
 
 		{ //send hello message
 			std::string username = GetArg("-pooluser", "");
-			char* hello = new char[username.length()+/*v0.2/0.3=*/2+/*v0.4=*/20];
+			std::string password = GetArg("-poolpassword", "");
+			char* hello = new char[username.length()+/*v0.2/0.3=*/2+/*v0.4=*/20+/*v0.7=*/1+password.length()];
 			memcpy(hello+1, username.c_str(), username.length());
 			*((unsigned char*)hello) = username.length();
 			*((unsigned char*)(hello+username.length()+1)) = 0; //hi, i'm v0.4+
 			*((unsigned char*)(hello+username.length()+2)) = VERSION_MAJOR;
 			*((unsigned char*)(hello+username.length()+3)) = VERSION_MINOR;
-			*((unsigned char*)(hello+username.length()+4)) = 1;
+			*((unsigned char*)(hello+username.length()+4)) = thread_num_max;
 			*((unsigned char*)(hello+username.length()+5)) = fee_to_pay;
 			*((unsigned short*)(hello+username.length()+6)) = miner_id;
 			*((unsigned int*)(hello+username.length()+8)) = nSieveExtensions;
 			*((unsigned int*)(hello+username.length()+12)) = nSievePercentage;
 			*((unsigned int*)(hello+username.length()+16)) = nSieveSize;
-			*((unsigned short*)(hello+username.length()+20)) = 0; //EXTENSIONS
+			*((unsigned char*)(hello+username.length()+20)) = password.length();
+			memcpy(hello+username.length()+21, password.c_str(), password.length());
+			*((unsigned short*)(hello+username.length()+21+password.length())) = 0; //EXTENSIONS
 			boost::system::error_code error;
-			socket->write_some(boost::asio::buffer(hello, username.length()+2+20), error);
-			if (error)
-				std::cout << error << " @ write_some_hello" << std::endl;
+			socket->write_some(boost::asio::buffer(hello, username.length()+2+20+1+password.length()), error);
+			//if (error)
+			//	std::cout << error << " @ write_some_hello" << std::endl;
 			delete[] hello;
 		}
 
@@ -301,7 +314,7 @@ public:
 				if (error == boost::asio::error::eof)
 					break; // Connection closed cleanly by peer.
 				else if (error) {
-					std::cout << error << " @ read_some1" << std::endl;
+					//std::cout << error << " @ read_some1" << std::endl;
 					break;
 				}
 				type = buf;
@@ -322,7 +335,7 @@ public:
 						done = true;
 						break; // Connection closed cleanly by peer.
 					} else if (error) {
-						std::cout << error << " @ read2a" << std::endl;
+						//std::cout << error << " @ read2a" << std::endl;
 						done = true;
 						break;
 					}
@@ -349,7 +362,7 @@ public:
 						done = true;
 						break; // Connection closed cleanly by peer.
 					} else if (error) {
-						std::cout << error << " @ read2b" << std::endl;
+						//std::cout << error << " @ read2b" << std::endl;
 						done = true;
 						break;
 					}
@@ -380,7 +393,7 @@ public:
 					//PING-PONG EVENT, nothing to do
 				} break;
 				default: {
-					std::cout << "unknown header type = " << type << std::endl;
+					//std::cout << "unknown header type = " << type << std::endl;
 				}
 			}
 		}
