@@ -15,7 +15,7 @@
 /* POOL ADDON */
 /**************/
 
-extern unsigned int pool_share_minimum;
+static const unsigned int POOL_SHARE_MINIMUM = 6;
 extern size_t thread_num_max;
 
 class CBlockProvider {
