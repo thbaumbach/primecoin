@@ -1,4 +1,5 @@
 src/*.exe
+src/primeminer
 src/primecoin
 src/primecoind
 src/test_primecoin
