@@ -25,6 +25,7 @@ public:
 	virtual CBlock* getBlock(unsigned int thread_id, unsigned int last_time) = 0;
 	virtual void submitBlock(CBlock* block) = 0;
 	virtual void forceReconnect() = 0;
+	virtual unsigned int GetAdjustedTimeWithOffset(unsigned int thread_id) = 0;
 };
 
 /**********************/
