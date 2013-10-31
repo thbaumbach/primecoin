@@ -1,7 +1,7 @@
 Xolo's Primecoin Pool Miner
 ===========================
 
-This is a pool mining version of primecoin, the so called xolominer,
+This is a pool mining version of primecoin, the so-called xolominer,
 based on mikaelh's high performance version of Sunny King's Primecoin tree.
 
 Features:
@@ -14,7 +14,7 @@ See forked project for more information.
 Usage
 -----
 
-primeminer [-options]
+`primeminer [-options]`
 
  * `-pooluser=[user]` Pool worker user name
  * `-poolpassword=[pass]` Pool worker password
@@ -28,7 +28,7 @@ primeminer [-options]
 Building xolominer
 ==================
 
-See `doc/build-*.md` for detailled information on compiling.
+See [Build Notes](doc/README.md) for detailled information on compiling.
 
 Dependencies:
  - libssl (SSL Support)

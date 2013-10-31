@@ -19,7 +19,7 @@ Primecoin tree features:
 Usage
 -----
 
-primeminer [-options]
+`primeminer [-options]`
 
  * `-pooluser=[user]` Pool worker user name
  * `-poolpassword=[pass]` Pool worker password
