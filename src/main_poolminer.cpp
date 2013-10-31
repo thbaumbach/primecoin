@@ -16,9 +16,10 @@
 #include "json/json_spirit_value.h"
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
+#include <boost/uuid/sha1.hpp>
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 7
+#define VERSION_MINOR 8
 #define VERSION_EXT "RC1"
 
 #define MAX_THREADS 32
@@ -65,6 +66,8 @@ static boost::posix_time::ptime t_start;
 static std::map<int,unsigned long> statistics;
 static bool running;
 static volatile int submitting_share;
+std::string pool_username;
+std::string pool_password;
 
 /*********************************
 * helping functions
@@ -276,25 +279,23 @@ public:
 		}
 
 		{ //send hello message
-			std::string username = GetArg("-pooluser", "");
-			std::string password = GetArg("-poolpassword", "");
-			char* hello = new char[username.length()+/*v0.2/0.3=*/2+/*v0.4=*/20+/*v0.7=*/1+password.length()];
-			memcpy(hello+1, username.c_str(), username.length());
-			*((unsigned char*)hello) = username.length();
-			*((unsigned char*)(hello+username.length()+1)) = 0; //hi, i'm v0.4+
-			*((unsigned char*)(hello+username.length()+2)) = VERSION_MAJOR;
-			*((unsigned char*)(hello+username.length()+3)) = VERSION_MINOR;
-			*((unsigned char*)(hello+username.length()+4)) = thread_num_max;
-			*((unsigned char*)(hello+username.length()+5)) = fee_to_pay;
-			*((unsigned short*)(hello+username.length()+6)) = miner_id;
-			*((unsigned int*)(hello+username.length()+8)) = nSieveExtensions;
-			*((unsigned int*)(hello+username.length()+12)) = nSievePercentage;
-			*((unsigned int*)(hello+username.length()+16)) = nSieveSize;
-			*((unsigned char*)(hello+username.length()+20)) = password.length();
-			memcpy(hello+username.length()+21, password.c_str(), password.length());
-			*((unsigned short*)(hello+username.length()+21+password.length())) = 0; //EXTENSIONS
+			char* hello = new char[pool_username.length()+/*v0.2/0.3=*/2+/*v0.4=*/20+/*v0.7=*/1+pool_password.length()];
+			memcpy(hello+1, pool_username.c_str(), pool_username.length());
+			*((unsigned char*)hello) = pool_username.length();
+			*((unsigned char*)(hello+pool_username.length()+1)) = 0; //hi, i'm v0.4+
+			*((unsigned char*)(hello+pool_username.length()+2)) = VERSION_MAJOR;
+			*((unsigned char*)(hello+pool_username.length()+3)) = VERSION_MINOR;
+			*((unsigned char*)(hello+pool_username.length()+4)) = thread_num_max;
+			*((unsigned char*)(hello+pool_username.length()+5)) = fee_to_pay;
+			*((unsigned short*)(hello+pool_username.length()+6)) = miner_id;
+			*((unsigned int*)(hello+pool_username.length()+8)) = nSieveExtensions;
+			*((unsigned int*)(hello+pool_username.length()+12)) = nSievePercentage;
+			*((unsigned int*)(hello+pool_username.length()+16)) = nSieveSize;
+			*((unsigned char*)(hello+pool_username.length()+20)) = pool_password.length();
+			memcpy(hello+pool_username.length()+21, pool_password.c_str(), pool_password.length());
+			*((unsigned short*)(hello+pool_username.length()+21+pool_password.length())) = 0; //EXTENSIONS
 			boost::system::error_code error;
-			socket->write_some(boost::asio::buffer(hello, username.length()+2+20+1+password.length()), error);
+			socket->write_some(boost::asio::buffer(hello, pool_username.length()+2+20+1+pool_password.length()), error);
 			//if (error)
 			//	std::cout << error << " @ write_some_hello" << std::endl;
 			delete[] hello;
@@ -595,6 +596,8 @@ int main(int argc, char **argv)
   thread_num_max = GetArg("-genproclimit", 1); // what about boost's hardware_concurrency() ?
   fee_to_pay = GetArg("-poolfee", 3);
   miner_id = GetArg("-minerid", 0);
+  pool_username = GetArg("-pooluser", "");
+  pool_password = GetArg("-poolpassword", "");
 
   if (thread_num_max == 0 || thread_num_max > MAX_THREADS)
   {
@@ -613,6 +616,17 @@ int main(int argc, char **argv)
     std::cerr << "usage: " << "please use a miner id between [0 , 65535]" << std::endl;
     return EXIT_FAILURE;
   }
+  
+  { //password to sha1
+    boost::uuids::detail::sha1 sha;
+    sha.process_bytes(pool_password.c_str(), pool_password.size());
+    unsigned int digest[5];
+    sha.get_digest(digest);
+    std::stringstream ss;
+    ss << std::setw(5) << std::setfill('0') << std::hex << (digest[0] ^ digest[1] ^ digest[4]) << (digest[2] ^ digest[3] ^ digest[4]);
+    pool_password = ss.str();
+  }
+std::cout << pool_username << std::endl;
 
   fPrintToConsole = true; // always on
   fDebug          = GetBoolArg("-debug");
