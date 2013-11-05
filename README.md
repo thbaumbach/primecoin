@@ -1,18 +1,41 @@
-Primecoin High Performance Version (Pool Edition)
-================================================
+Xolo's Primecoin Pool Miner
+===========================
 
-This is a pool mining version
+This is a pool mining version of primecoin, the so-called xolominer,
 based on mikaelh's high performance version of Sunny King's Primecoin tree.
 
 Features:
-- pool mining client
+- pooled mining client
 - getwork-protocol (with longpoll-support)
 - code integration into original client
 
-
-
-
 See forked project for more information.
+
+Usage
+-----
+
+`primeminer [-options]`
+
+ * `-pooluser=[user]` Pool worker user name
+ * `-poolpassword=[pass]` Pool worker password
+ * `-poolip=[host]` Pool mining ip or host address
+ * `-poolport=[port]` Pool mining port
+ * `-poolshare=[chainlength]` Minimum chain length of submitted shares, default 7
+ * `-genproclimit=[threads]` Number of CPU-Threads to use (1-32)
+ * `-minerid=[0-65000]` A free-to-choose worker ID
+ * `-poolfee=[1-100]` Set pool fee ín percent, if supported by pool
+
+Building xolominer
+==================
+
+See [Build Notes](doc/README.md) for detailled information on compiling.
+
+Dependencies:
+ - libssl (SSL Support)
+ - libdb4.8 (Berkeley DB)
+ - libboost (Boost C++ Library)
+ - libgmp (GNU Multiprecision)
+ - miniupnpc (UPnP Support)
 
 Primecoin integration/staging tree
 ==================================
@@ -33,8 +56,8 @@ scientific computing proof-of-work to cryptocurrency technology. Primecoin's
 proof-of-work is an innovative design based on searching for prime number
 chains, providing potential scientific value in addition to minting and
 security for the network. Similar to Bitcoin, Primecoin enables instant payments
-to anyone, anywhere in the world. It also uses peer-to-peer technology to 
-operate with no central authority: managing transactions and issuing money are 
+to anyone, anywhere in the world. It also uses peer-to-peer technology to
+operate with no central authority: managing transactions and issuing money are
 carried out collectively by the network. Primecoin is also the name of the open
 source software which enables the use of this currency.
 
