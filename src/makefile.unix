@@ -193,10 +193,10 @@ obj/%.o: %.cpp
 	  rm -f $(@:%.o=%.d)
 
 primeminer: $(OBJS:obj/%=obj/%) obj/main_poolminer.o
-	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS)
+	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS) $(DEFS)
 
 primecoind: $(OBJS:obj/%=obj/%) obj/init.o
-	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS)
+	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS) $(DEFS)
 
 TESTOBJS := $(patsubst test/%.cpp,obj-test/%.o,$(wildcard test/*.cpp))
 
