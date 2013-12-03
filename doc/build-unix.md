@@ -48,7 +48,7 @@ Dependency Build Instructions: Ubuntu & Debian
 ----------------------------------------------
 Build requirements:
 
-	sudo apt-get install build-essential libssl-dev libboost-all-dev libgmp-dev
+	sudo apt-get install build-essential libssl-dev libgmp-dev
 
 Berkeley db4.8 packages are available [here](https://launchpad.net/~bitcoin/+archive/bitcoin):
 
@@ -59,12 +59,16 @@ Berkeley db4.8 packages are available [here](https://launchpad.net/~bitcoin/+arc
 Ubuntu precise has packages for libdb5.1-dev and libdb5.1++-dev,
 but using these will break binary wallet compatibility, and is not recommended.
 
-If you have trouble with libboost dependencies, make sure these are installed:
+Prior Boost <1.48 install `libboost-all-dev`
+
+	sudo apt-get install libboost-all-dev
+
+If you have trouble with Boost >= 1.48 dependencies, make sure these are installed as the `libboost-all` package does not include all needed dependencies:
 
 	sudo apt-get install libboost-chrono1.48-dev libboost-filesystem1.48-dev libboost-system1.48-dev libboost-program-options1.48-dev libboost-thread1.48-dev
 
-(If using Boost 1.37, append -mt to the boost libraries in the makefile,
-use `apt-cache search libboost` to find out which version is available for your system.)
+If you are using Boost 1.37, append -mt to the boost libraries in the makefile,
+use `apt-cache search libboost` to find out which version is available for your system.
 
 Optional:
 
