@@ -4590,8 +4590,10 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
     bool fIncrementPrimorial = true; // increase or decrease primorial factor
 
     CBlock *pblock = NULL;
+	CBlock *orgblock = NULL;
 	uint256 old_hash;
 	unsigned int old_nonce = 0;
+	unsigned int blockcnt = 0;
 
     try { loop {
         while (block_provider == NULL && vNodes.empty())
@@ -4602,6 +4604,11 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
         //
         unsigned int nTransactionsUpdatedLast = nTransactionsUpdated;
         CBlockIndex* pindexPrev = pindexBest;
+		
+		if (orgblock != block_provider->getOriginalBlock()) {
+			orgblock = block_provider->getOriginalBlock();
+			blockcnt = 0;
+		}
 
         auto_ptr<CBlockTemplate> pblocktemplate;
         if (block_provider == NULL) {
@@ -4610,7 +4617,7 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
               return;
           pblock = &pblocktemplate->block;
           IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
-        } else if ((pblock = block_provider->getBlock(thread_id, pblock == NULL ? 0 : pblock->nTime)) == NULL) { //server not reachable?
+        } else if ((pblock = block_provider->getBlock(thread_id, pblock == NULL ? 0 : pblock->nTime, blockcnt)) == NULL) { //server not reachable?
           MilliSleep(20000);
           continue;
         } else if (old_hash == pblock->GetHeaderHash()) {
@@ -4625,6 +4632,8 @@ void BitcoinMiner(CWallet *pwallet, CBlockProvider *block_provider, unsigned int
         } else {
             old_hash = pblock->GetHeaderHash();
 			old_nonce = 0;
+			if (orgblock == block_provider->getOriginalBlock())
+				++blockcnt;
         }
 
         if (fDebug && GetBoolArg("-printmining"))

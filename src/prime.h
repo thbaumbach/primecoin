@@ -22,7 +22,8 @@ class CBlockProvider {
 public:
 	CBlockProvider() { }
 	~CBlockProvider() { }
-	virtual CBlock* getBlock(unsigned int thread_id, unsigned int last_time) = 0;
+	virtual CBlock* getBlock(unsigned int thread_id, unsigned int last_time, unsigned int counter) = 0;
+	virtual CBlock* getOriginalBlock() = 0;
 	virtual void submitBlock(CBlock* block) = 0;
 	virtual void forceReconnect() = 0;
 	virtual unsigned int GetAdjustedTimeWithOffset(unsigned int thread_id) = 0;

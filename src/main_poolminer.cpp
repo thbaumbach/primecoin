@@ -109,15 +109,20 @@ public:
 	virtual unsigned int GetAdjustedTimeWithOffset(unsigned int thread_id) {
 		return nTime_offset + ((((unsigned int)GetAdjustedTime() + thread_num_max) / thread_num_max) * thread_num_max) + thread_id;
 	}
+	
+	virtual CBlock* getOriginalBlock() {
+		return _blocks;
+	}
 
-	virtual CBlock* getBlock(unsigned int thread_id, unsigned int last_time) {
+	virtual CBlock* getBlock(unsigned int thread_id, unsigned int last_time, unsigned int counter) {
 		boost::unique_lock<boost::shared_mutex> lock(_mutex_getwork);
 		if (_blocks == NULL) return NULL;
 		CBlock* block = NULL;
 		block = new CBlock(_blocks->GetBlockHeader());
 		unsigned int new_time = GetAdjustedTimeWithOffset(thread_id);
-		if (new_time == last_time)
-			new_time += thread_num_max;
+		//if (new_time == last_time)
+		//	new_time += thread_num_max;
+		new_time += counter * thread_num_max;
 		block->nTime = new_time; //TODO: check if this is the same time like before!?
 		//std::cout << "[WORKER" << thread_id << "] got_work block=" << block->GetHash().ToString().c_str() << std::endl;
 		return block;
