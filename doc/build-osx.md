@@ -114,13 +114,11 @@ Rerunning "openssl version" should now return the correct version.
         git clone git@github.com:bitcoin/bitcoin.git bitcoin
         cd bitcoin
 
-2.  Modify source in order to pick up the `openssl` library.
-
-    Edit `makefile.osx` to account for library location differences. There's a
-    diff in `contrib/homebrew/makefile.osx.patch` that shows what you need to
-    change, or you can just patch by doing
+2. Apply patch.
 
         patch -p1 < contrib/homebrew/makefile.osx.patch
+        patch -p1 < contrib/homebrew/main_poolminer.cpp.patch
+        patch -p1 < contrib/homebrew/serialize.h.patch
 
 3.  Build bitcoind:
 
