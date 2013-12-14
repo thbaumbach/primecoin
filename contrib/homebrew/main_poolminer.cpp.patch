@@ -1,0 +1,62 @@
+--- primecoin/src/main_poolminer.cpp
++++ xolominer/src/main_poolminer.cpp
+@@ -519,46 +519,6 @@ void exit_handler() {
+ 	running = false;
+ }
+ 
+-#if defined(__MINGW32__) || defined(__MINGW64__)
+-
+-#define WIN32_LEAN_AND_MEAN
+-#include <windows.h>
+-
+-BOOL WINAPI ctrl_handler(DWORD dwCtrlType) {
+-	//'special' cleanup for windows
+-	switch(dwCtrlType) {
+-		case CTRL_C_EVENT:
+-		case CTRL_BREAK_EVENT: {
+-			if (socket_to_server != NULL) {
+-				socket_to_server->close();
+-				socket_to_server = NULL;
+-			}
+-			stats_on_exit();
+-			running = false;
+-		} break;
+-		default: break;
+-	}
+-	return FALSE;
+-}
+-
+-#elif defined(__GNUG__)
+-
+-static sighandler_t set_signal_handler (int signum, sighandler_t signalhandler) {
+-   struct sigaction new_sig, old_sig;
+-   new_sig.sa_handler = signalhandler;
+-   sigemptyset (&new_sig.sa_mask);
+-   new_sig.sa_flags = SA_RESTART;
+-   if (sigaction (signum, &new_sig, &old_sig) < 0)
+-      return SIG_ERR;
+-   return old_sig.sa_handler;
+-}
+-
+-void ctrl_handler(int signum) {
+-	exit(1);
+-}
+-
+-#endif //TODO: __APPLE__ ?
+-
+ /*********************************
+ * main - this is where it begins
+ *********************************/
+@@ -575,12 +535,6 @@ int main(int argc, char **argv)
+   t_start = boost::posix_time::second_clock::universal_time();
+   running = true;
+ 
+-#if defined(__MINGW32__) || defined(__MINGW64__)
+-  SetConsoleCtrlHandler(ctrl_handler, TRUE);
+-#elif defined(__GNUG__)
+-  set_signal_handler(SIGINT, ctrl_handler);
+-#endif //TODO: __APPLE__
+-
+   if (argc < 2)
+   {
+     std::cerr << "usage: " << argv[0] <<

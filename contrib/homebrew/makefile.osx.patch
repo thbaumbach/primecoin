@@ -1,15 +1,11 @@
-diff --git a/src/makefile.osx b/src/makefile.osx
-index 8b7c559..8a0560c 100644
---- a/src/makefile.osx
-+++ b/src/makefile.osx
-@@ -7,17 +7,21 @@
+--- primecoin/src/makefile.osx
++++ xolominer/src/makefile.osx
+@@ -8,20 +8,22 @@
  # Originally by Laszlo Hanyecz (solar@heliacal.net)
  
  CXX=llvm-g++
 -DEPSDIR=/opt/local
 +DEPSDIR=/usr/local
-+DB4DIR=/usr/local/opt/berkeley-db4
-+OPENSSLDIR=/usr/local/opt/openssl
  
  INCLUDEPATHS= \
   -I"$(CURDIR)" \
@@ -17,31 +13,93 @@ index 8b7c559..8a0560c 100644
 + -I"$(CURDIR)/obj" \
   -I"$(DEPSDIR)/include" \
 - -I"$(DEPSDIR)/include/db48"
-+ -I"$(DB4DIR)/include" \
-+ -I"$(OPENSSLDIR)/include"
++ -I"$(DEPSDIR)/opt/berkeley-db4/include" \
++ -I"$(DEPSDIR)/opt/openssl/include"
  
  LIBPATHS= \
   -L"$(DEPSDIR)/lib" \
 - -L"$(DEPSDIR)/lib/db48"
-+ -L"$(DB4DIR)/lib" \
-+ -L"$(OPENSSLDIR)/lib"
++ -L"$(DEPSDIR)/opt/berkeley-db4/lib" \
++ -L"$(DEPSDIR)/opt/openssl/lib"
  
  USE_UPNP:=1
- USE_IPV6:=1
-@@ -31,13 +35,13 @@ ifdef STATIC
+-USE_IPV6:=1
++USE_IPV6:=0
+ 
+ LIBS= -dead_strip
+ 
+@@ -30,16 +32,16 @@ TESTDEFS = -DTEST_DATA_DIR=$(abspath tes
+ ifdef STATIC
+ # Build STATIC if you are redistributing the bitcoind binary
  TESTLIBS += \
-  $(DEPSDIR)/lib/libboost_unit_test_framework-mt.a
+- $(DEPSDIR)/lib/libboost_unit_test_framework-mt.a
++ $(DEPSDIR)/opt/boost/lib/libboost_unit_test_framework-mt.a
  LIBS += \
 - $(DEPSDIR)/lib/db48/libdb_cxx-4.8.a \
-+ $(DB4DIR)/lib/libdb_cxx-4.8.a \
-  $(DEPSDIR)/lib/libboost_system-mt.a \
-  $(DEPSDIR)/lib/libboost_filesystem-mt.a \
-  $(DEPSDIR)/lib/libboost_program_options-mt.a \
-  $(DEPSDIR)/lib/libboost_thread-mt.a \
+- $(DEPSDIR)/lib/libboost_system-mt.a \
+- $(DEPSDIR)/lib/libboost_filesystem-mt.a \
+- $(DEPSDIR)/lib/libboost_program_options-mt.a \
+- $(DEPSDIR)/lib/libboost_thread-mt.a \
+- $(DEPSDIR)/lib/libboost_chrono-mt.a \
 - $(DEPSDIR)/lib/libssl.a \
 - $(DEPSDIR)/lib/libcrypto.a \
-+ $(OPENSSLDIR)/lib/libssl.a \
-+ $(OPENSSLDIR)/lib/libcrypto.a \
++ $(DEPSDIR)/opt/berkeley-db4/lib/libdb_cxx-4.8.a \
++ $(DEPSDIR)/opt/boost/lib/libboost_system-mt.a \
++ $(DEPSDIR)/opt/boost/lib/libboost_filesystem-mt.a \
++ $(DEPSDIR)/opt/boost/lib/libboost_program_options-mt.a \
++ $(DEPSDIR)/opt/boost/lib/libboost_thread-mt.a \
++ $(DEPSDIR)/opt/boost/lib/libboost_chrono-mt.a \
++ $(DEPSDIR)/opt/openssl/lib/libssl.a \
++ $(DEPSDIR)/opt/openssl/lib/libcrypto.a \
   -lz
  else
  TESTLIBS += \
+@@ -64,7 +66,8 @@ ifdef RELEASE
+ # Compile for maximum compatibility and smallest size.
+ # This requires that dependencies are compiled
+ # the same way.
+-CFLAGS = -mmacosx-version-min=10.5 -arch i386 -O3
++CFLAGS = -mmacosx-version-min=10.5 -arch x86_64 -O3
++LDFLAGS= -arch x86_64
+ else
+ DEBUGFLAGS = -g
+ endif
+@@ -83,7 +86,6 @@ OBJS= \
+     obj/crypter.o \
+     obj/key.o \
+     obj/db.o \
+-    obj/init.o \
+     obj/keystore.o \
+     obj/main.o \
+     obj/net.o \
+@@ -124,7 +126,7 @@ ifneq (${USE_IPV6}, -)
+ 	DEFS += -DUSE_IPV6=$(USE_IPV6)
+ endif
+ 
+-all: primecoind
++all: primeminer
+ 
+ test check: test_primecoin FORCE
+ 	./test_primecoin
+@@ -132,6 +134,7 @@ test check: test_primecoin FORCE
+ #
+ # LevelDB support
+ #
++MAKEOVERRIDES =
+ LIBS += $(CURDIR)/leveldb/libleveldb.a $(CURDIR)/leveldb/libmemenv.a
+ DEFS += $(addprefix -I,$(CURDIR)/leveldb/include)
+ DEFS += $(addprefix -I,$(CURDIR)/leveldb/helpers)
+@@ -154,8 +157,11 @@ obj/%.o: %.cpp
+ 	      -e '/^$$/ d' -e 's/$$/ :/' < $(@:%.o=%.d) >> $(@:%.o=%.P); \
+ 	  rm -f $(@:%.o=%.d)
+ 
+-primecoind: $(OBJS:obj/%=obj/%)
+-	$(CXX) $(CFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS)
++primeminer: $(OBJS:obj/%=obj/%) obj/main_poolminer.o
++	$(CXX) $(CFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS) $(DEFS)
++
++primecoind: $(OBJS:obj/%=obj/%) obj/init.o
++	$(CXX) $(CFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS) $(DEFS)
+ 
+ TESTOBJS := $(patsubst test/%.cpp,obj-test/%.o,$(wildcard test/*.cpp))
+ 
