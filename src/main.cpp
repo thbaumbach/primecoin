@@ -4455,11 +4455,11 @@ CBlockTemplate* CreateNewBlock(CReserveKey& reservekey)
 }
 
 
-void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce)
+void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce, bool fNoReset)
 {
     // Update nExtraNonce
     static uint256 hashPrevBlock;
-    if (hashPrevBlock != pblock->hashPrevBlock)
+    if (!fNoReset && hashPrevBlock != pblock->hashPrevBlock)
     {
         nExtraNonce = 0;
         hashPrevBlock = pblock->hashPrevBlock;
@@ -4572,6 +4572,16 @@ void static BitcoinMiner(CWallet *pwallet)
     int64 nSieveGenTime = 0; // how many milliseconds sieve generation took
     bool fIncrementPrimorial = true; // increase or decrease primorial factor
 
+    // Many machines may be using the same key if they are sharing the same wallet
+    // Make extra nonce unique by setting it to a modulo of the high resolution clock's value
+    const unsigned int nExtraNonceModulo = 10000000;
+    boost::chrono::high_resolution_clock::time_point time_now = boost::chrono::high_resolution_clock::now();
+    boost::chrono::nanoseconds ns_now = boost::chrono::duration_cast<boost::chrono::nanoseconds>(time_now.time_since_epoch());
+    nExtraNonce = ns_now.count() % nExtraNonceModulo;
+
+    // Print the chosen extra nonce for debugging
+    printf("BitcoinMiner() : Setting initial extra nonce to %u\n", nExtraNonce);
+
     try { loop {
         while (vNodes.empty())
             MilliSleep(1000);
@@ -4592,7 +4602,7 @@ void static BitcoinMiner(CWallet *pwallet)
         if (!pblocktemplate.get())
             return;
         CBlock *pblock = &pblocktemplate->block;
-        IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
+        IncrementExtraNonce(pblock, pindexPrev, nExtraNonce, true);
 
         if (fDebug && GetBoolArg("-printmining"))
             printf("Running PrimecoinMiner with %"PRIszu" transactions in block (%u bytes)\n", pblock->vtx.size(),
