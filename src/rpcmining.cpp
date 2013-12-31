@@ -50,31 +50,60 @@ Value setgenerate(const Array& params, bool fHelp)
 }
 
 
-Value getsievepercentage(const Array& params, bool fHelp)
+Value getsievesize(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
         throw runtime_error(
-            "getsievepercentage\n"
-            "Returns the current sieve percentage used by the mining algorithm.");
+            "getsievesize\n"
+            "Returns the current sieve size used by the mining algorithm.");
 
-    return (boost::int64_t)nSievePercentage;
+    return (boost::int64_t)nSieveSize;
 }
 
 
-Value setsievepercentage(const Array& params, bool fHelp)
+Value setsievesize(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1)
         throw runtime_error(
-            "setsievepercentage <sievepercentage>\n"
-            "<sievepercentage> determines how many rounds the candidate multiplier sieve runs.");
+            "setsievesize <sievesize>\n"
+            "<sievesize> determines how many numbers are sieved at one time.");
 
-    unsigned int nPercentage = nDefaultSievePercentage;
+    unsigned int nSize = nDefaultSieveSize;
     if (params.size() > 0)
-        nPercentage = params[0].get_int();
+        nSize = params[0].get_int();
 
-    nPercentage = std::max(std::min(nPercentage, nMaxSievePercentage), nMinSievePercentage);
+    nSize = std::max(std::min(nSize, nMaxSieveSize), nMinSieveSize);
 
-    nSievePercentage = nPercentage;
+    nSieveSize = nSize;
+    return Value::null;
+}
+
+
+Value getsievefilterprimes(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "getsievefilterprimes\n"
+            "Returns the current number of primes that are filtered out by the sieve.");
+
+    return (boost::int64_t)nSieveFilterPrimes;
+}
+
+
+Value setsievefilterprimes(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1)
+        throw runtime_error(
+            "setsievefilterprimes <number of primes>\n"
+            "<number of primes> determines how many primes are filtered out by the sieve.");
+
+    unsigned int nPrimes = nDefaultSieveFilterPrimes;
+    if (params.size() > 0)
+        nPrimes = params[0].get_int();
+
+    nPrimes = std::max(std::min(nPrimes, nMaxSieveFilterPrimes), nMinSieveFilterPrimes);
+
+    nSieveFilterPrimes = nPrimes;
     return Value::null;
 }
 
@@ -140,7 +169,7 @@ Value getmininginfo(const Array& params, bool fHelp)
     obj.push_back(Pair("genproclimit",  (int)GetArg("-genproclimit", -1)));
     obj.push_back(Pair("pooledtx",      (uint64_t)mempool.size()));
     obj.push_back(Pair("sieveextensions",(int)nSieveExtensions));
-    obj.push_back(Pair("sievepercentage",(int)nSievePercentage));
+    obj.push_back(Pair("sievefilterprimes",(int)nSieveFilterPrimes));
     obj.push_back(Pair("sievesize",     (int)nSieveSize));
     obj.push_back(Pair("testnet",       fTestNet));
     return obj;

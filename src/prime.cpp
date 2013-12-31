@@ -12,7 +12,7 @@
 // Prime Table
 std::vector<unsigned int> vPrimes;
 unsigned int nSieveSize = nDefaultSieveSize;
-unsigned int nSievePercentage = nDefaultSievePercentage;
+unsigned int nSieveFilterPrimes = nDefaultSieveFilterPrimes;
 unsigned int nSieveExtensions = nDefaultSieveExtensions;
 bool fBetterStatistics = false;
 
@@ -23,14 +23,14 @@ void GeneratePrimeTable()
     const unsigned int nDefaultSieveExt = (fTestNet) ? nDefaultSieveExtensionsTestnet : nDefaultSieveExtensions;
     nSieveExtensions = (unsigned int)GetArg("-sieveextensions", nDefaultSieveExt);
     nSieveExtensions = std::max(std::min(nSieveExtensions, nMaxSieveExtensions), nMinSieveExtensions);
-    nSievePercentage = (unsigned int)GetArg("-sievepercentage", nDefaultSievePercentage);
-    nSievePercentage = std::max(std::min(nSievePercentage, nMaxSievePercentage), nMinSievePercentage);
     nSieveSize = (unsigned int)GetArg("-sievesize", nDefaultSieveSize);
     nSieveSize = std::max(std::min(nSieveSize, nMaxSieveSize), nMinSieveSize);
+    nSieveFilterPrimes = (unsigned int)GetArg("-sievefilterprimes", nDefaultSieveFilterPrimes);
+    nSieveFilterPrimes = std::max(std::min(nSieveFilterPrimes, nMaxSieveFilterPrimes), nMinSieveFilterPrimes);
     fBetterStatistics = GetBoolArg("-betterstats");
-    printf("GeneratePrimeTable() : setting nSieveExtensions = %u, nSievePercentage = %u, nSieveSize = %u\n", nSieveExtensions, nSievePercentage, nSieveSize);
+    printf("GeneratePrimeTable() : setting nSieveExtensions = %u, nSieveSize = %u, nSieveFilterPrimes = %u\n", nSieveExtensions, nSieveSize, nSieveFilterPrimes);
 
-    const unsigned nPrimeTableLimit = nSieveSize;
+    const unsigned nPrimeTableLimit = 1000000u;
     vPrimes.clear();
     // Generate prime table using sieve of Eratosthenes
     std::vector<bool> vfComposite (nPrimeTableLimit, false);
@@ -822,7 +822,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
     {
         // Build sieve
         nStart = GetTimeMicros();
-        lpsieve = new CSieveOfEratosthenes(nSieveSize, nSievePercentage, nSieveExtensions, nBits, mpzHash, mpzFixedMultiplier, pindexPrev);
+        lpsieve = new CSieveOfEratosthenes(nSieveSize, nSieveFilterPrimes, nSieveExtensions, nBits, mpzHash, mpzFixedMultiplier, pindexPrev);
         while (lpsieve->Weave() && pindexPrev == pindexBest);
         nSieveGenTime = GetTimeMicros() - nStart;
         if (fDebug && GetBoolArg("-printmining"))
@@ -1226,7 +1226,7 @@ double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsi
     // statistically independent after running the sieve, which might not be
     // true, but nontheless it's a reasonable model of the chances of finding
     // prime chains.
-    const unsigned int nSieveWeaveOptimalPrime = vPrimes[(unsigned int) ((uint64) nSievePercentage * vPrimes.size() / 100) - 1];
+    const unsigned int nSieveWeaveOptimalPrime = vPrimes[nSieveFilterPrimes - 1];
     const unsigned int nAverageCandidateMultiplier = nSieveSize / 2;
     double dFixedMultiplier = 1.0;
     for (unsigned int i = 0; vPrimes[i] <= nPrimorialMultiplier; i++)

@@ -22,10 +22,10 @@ static const unsigned int nMinSieveExtensions = 0;
 static const unsigned int nDefaultSieveExtensions = 9;
 static const unsigned int nDefaultSieveExtensionsTestnet = 4;
 extern unsigned int nSieveExtensions;
-static const unsigned int nMaxSievePercentage = 100;
-static const unsigned int nDefaultSievePercentage = 10;
-static const unsigned int nMinSievePercentage = 1;
-extern unsigned int nSievePercentage;
+static const unsigned int nMaxSieveFilterPrimes = 78498u; // size of prime table
+static const unsigned int nDefaultSieveFilterPrimes = 7849u;
+static const unsigned int nMinSieveFilterPrimes = 1000u;
+extern unsigned int nSieveFilterPrimes;
 static const unsigned int nMaxSieveSize = 10000000u;
 static const unsigned int nDefaultSieveSize = 1000000u;
 static const unsigned int nMinSieveSize = 100000u;
@@ -157,7 +157,7 @@ typedef unsigned long sieve_word_t;
 class CSieveOfEratosthenes
 {
     unsigned int nSieveSize; // size of the sieve
-    unsigned int nSievePercentage; // weave up to a percentage of primes
+    unsigned int nSieveFilterPrimes; // filter a certain number of primes
     unsigned int nSieveExtensions; // extend the sieve a given number of times
     unsigned int nBits; // target of the prime chain to search for
     mpz_class mpzHash; // hash of the block header
@@ -203,10 +203,10 @@ class CSieveOfEratosthenes
     void ProcessMultiplier(sieve_word_t *vfComposites, const unsigned int nMinMultiplier, const unsigned int nMaxMultiplier, const std::vector<unsigned int>& vPrimes, unsigned int *vMultipliers, unsigned int nLayerSeq);
 
 public:
-    CSieveOfEratosthenes(unsigned int nSieveSize, unsigned int nSievePercentage, unsigned int nSieveExtensions, unsigned int nBits, mpz_class& mpzHash, mpz_class& mpzFixedMultiplier, CBlockIndex* pindexPrev)
+    CSieveOfEratosthenes(unsigned int nSieveSize, unsigned int nSieveFilterPrimes, unsigned int nSieveExtensions, unsigned int nBits, mpz_class& mpzHash, mpz_class& mpzFixedMultiplier, CBlockIndex* pindexPrev)
     {
         this->nSieveSize = nSieveSize;
-        this->nSievePercentage = nSievePercentage;
+        this->nSieveFilterPrimes = nSieveFilterPrimes;
         this->nSieveExtensions = nSieveExtensions;
         this->nBits = nBits;
         this->mpzHash = mpzHash;
@@ -242,10 +242,9 @@ public:
             nChainLength = nSieveTargetLength;
         nSieveLayers = nChainLength + nSieveExtensions;
 
-        // Process only a set percentage of the primes
+        // Filter only a certain number of prime factors
         // Most composites are still found
-        const unsigned int nTotalPrimes = vPrimes.size();
-        nPrimes = (uint64)nTotalPrimes * nSievePercentage / 100;
+        nPrimes = nSieveFilterPrimes;
     }
 
     ~CSieveOfEratosthenes()
