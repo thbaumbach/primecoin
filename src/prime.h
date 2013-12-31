@@ -48,9 +48,6 @@ extern boost::timer::cpu_timer minerTimer;
 static const unsigned int nDefaultSieveTargetLength = -1;
 extern int nSieveTargetLength;
 
-// Estimate how many 5-chains are found per hour
-static const unsigned int nStatsChainLength = 5;
-
 extern unsigned int nTargetInitialLength;
 extern unsigned int nTargetMinLength;
 
@@ -129,7 +126,7 @@ std::string GetPrimeOriginPrimorialForm(CBigNum& bnPrimeChainOrigin);
 /********************/
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& nChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev, std::vector<unsigned int>& vChainsFound);
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev, std::vector<unsigned int>& vChainsFound);
 
 // Estimate the probability of primality for a number in a candidate chain
 double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum);

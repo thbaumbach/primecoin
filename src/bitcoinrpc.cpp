@@ -215,7 +215,6 @@ static const CRPCCommand vRPCCommands[] =
     { "getsieveextensions",     &getsieveextensions,     true,      false },
     { "setsieveextensions",     &setsieveextensions,     true,      false },
     { "getprimespersec",        &getprimespersec,        true,      false },
-    { "getchainspermin",        &getchainspermin,        true,      false },
     { "getinfo",                &getinfo,                true,      false },
     { "getmininginfo",          &getmininginfo,          true,      false },
     { "getnewaddress",          &getnewaddress,          true,      false },

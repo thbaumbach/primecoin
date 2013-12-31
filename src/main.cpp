@@ -70,7 +70,6 @@ CScript COINBASE_FLAGS;
 const string strMessageMagic = "Primecoin Signed Message:\n";
 
 double dPrimesPerSec = 0.0;
-double dChainsPerMinute = 0.0;
 double dChainsPerDay = 0.0;
 int64 nHPSTimerStart = 0;
 
@@ -4670,7 +4669,6 @@ void static BitcoinMiner(CWallet *pwallet)
         {
             unsigned int nTests = 0;
             unsigned int nPrimesHit = 0;
-            unsigned int nChainsHit = 0;
             std::vector<unsigned int> vChainsFound (nMaxChainLength, 0);
 
             // Primecoin: adjust round primorial so that the generated prime candidates meet the minimum
@@ -4690,7 +4688,7 @@ void static BitcoinMiner(CWallet *pwallet)
 
             // Primecoin: mine for prime chain
             unsigned int nProbableChainLength;
-            if (MineProbablePrimeChain(*pblock, mpzFixedMultiplier, fNewBlock, nTriedMultiplier, nProbableChainLength, nTests, nPrimesHit, nChainsHit, mpzHash, nPrimorialMultiplier, nSieveGenTime, pindexPrev, vChainsFound))
+            if (MineProbablePrimeChain(*pblock, mpzFixedMultiplier, fNewBlock, nTriedMultiplier, nProbableChainLength, nTests, nPrimesHit, mpzHash, nPrimorialMultiplier, nSieveGenTime, pindexPrev, vChainsFound))
             {
                 SetThreadPriority(THREAD_PRIORITY_NORMAL);
                 nTotalBlocksFound++;
@@ -4703,7 +4701,6 @@ void static BitcoinMiner(CWallet *pwallet)
             // Meter primes/sec
             static volatile int64 nPrimeCounter;
             static volatile int64 nTestCounter;
-            static volatile int64 nChainCounter;
             static double dChainExpected;
             static std::vector<unsigned int> vFoundChainCounter (nMaxChainLength, 0);
             int64 nMillisNow = GetTimeMillis();
@@ -4712,7 +4709,6 @@ void static BitcoinMiner(CWallet *pwallet)
                 nHPSTimerStart = nMillisNow;
                 nPrimeCounter = 0;
                 nTestCounter = 0;
-                nChainCounter = 0;
                 dChainExpected = 0;
             }
             else
@@ -4721,7 +4717,6 @@ void static BitcoinMiner(CWallet *pwallet)
                 // Use atomic increment
                 __sync_add_and_fetch(&nPrimeCounter, nPrimesHit);
                 __sync_add_and_fetch(&nTestCounter, nTests);
-                __sync_add_and_fetch(&nChainCounter, nChainsHit);
                 __sync_add_and_fetch(&nTotalTests, nTests);
                 for (unsigned int i = 0; i < nMaxChainLength; i++)
                 {
@@ -4731,7 +4726,6 @@ void static BitcoinMiner(CWallet *pwallet)
 #else
                 nPrimeCounter += nPrimesHit;
                 nTestCounter += nTests;
-                nChainCounter += nChainsHit;
                 nTotalTests += nTests;
                 for (unsigned int i = 0; i < nMaxChainLength; i++)
                 {
@@ -4748,18 +4742,16 @@ void static BitcoinMiner(CWallet *pwallet)
                     double dPrimesPerMinute = 60000.0 * nPrimeCounter / (nMillisNow - nHPSTimerStart);
                     dPrimesPerSec = dPrimesPerMinute / 60.0;
                     double dTestsPerMinute = 60000.0 * nTestCounter / (nMillisNow - nHPSTimerStart);
-                    dChainsPerMinute = 60000.0 * nChainCounter / (nMillisNow - nHPSTimerStart);
                     dChainsPerDay = 86400000.0 * dChainExpected / (GetTimeMillis() - nHPSTimerStart);
                     nHPSTimerStart = nMillisNow;
                     nPrimeCounter = 0;
                     nTestCounter = 0;
-                    nChainCounter = 0;
                     dChainExpected = 0;
                     static int64 nLogTime = 0;
                     if (nMillisNow - nLogTime > 59000)
                     {
                         nLogTime = nMillisNow;
-                        printf("%s primemeter %9.0f prime/h %9.0f test/h %4.0f %d-chains/h %3.6f chain/d\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerMinute * 60.0, dTestsPerMinute * 60.0, dChainsPerMinute * 60.0, nStatsChainLength, dChainsPerDay);
+                        printf("%s primemeter %9.0f prime/h %9.0f test/h %3.6f chain/d\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerMinute * 60.0, dTestsPerMinute * 60.0, dChainsPerDay);
                         PrintCompactStatistics(vFoundChainCounter);
                     }
                 }

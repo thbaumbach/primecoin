@@ -119,17 +119,6 @@ Value getprimespersec(const Array& params, bool fHelp)
 }
 
 
-Value getchainspermin(const Array& params, bool fHelp)
-{
-    if (fHelp || params.size() != 0)
-        throw runtime_error(
-            "getchainspermin\n"
-            "Returns a recent chains per second performance measurement while generating.");
-
-    return (boost::int64_t)dChainsPerMinute;
-}
-
-
 extern Value getdifficulty(const Array& params, bool fHelp);
 
 

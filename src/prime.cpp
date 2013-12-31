@@ -802,13 +802,12 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
 boost::thread_specific_ptr<CSieveOfEratosthenes> psieve;
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& nChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev, std::vector<unsigned int>& vChainsFound)
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev, std::vector<unsigned int>& vChainsFound)
 {
     CSieveOfEratosthenes *lpsieve;
     nProbableChainLength = 0;
     nTests = 0;
     nPrimesHit = 0;
-    nChainsHit = 0;
     const unsigned int nBits = block.nBits;
 
     if (fNewBlock && psieve.get() != NULL)
@@ -854,7 +853,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
         {
             // power tests completed for the sieve
             //if (fDebug && GetBoolArg("-printmining"))
-                //printf("MineProbablePrimeChain() : %u tests (%u primes and %u %d-chains) in %uus\n", nTests, nPrimesHit, nChainsHit, nStatsChainLength, (unsigned int) (GetTimeMicros() - nStart));
+                //printf("MineProbablePrimeChain() : %u tests (%u primes) in %uus\n", nTests, nPrimesHit, (unsigned int) (GetTimeMicros() - nStart));
             psieve.reset();
             fNewBlock = true; // notify caller to change nonce
             return false;
@@ -870,8 +869,6 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
         if(nChainPrimeLength >= 1)
         {
             nPrimesHit++;
-            if(nChainPrimeLength >= nStatsChainLength)
-                nChainsHit++;
             vChainsFound[nChainPrimeLength - 1]++;
         }
 
@@ -889,7 +886,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
     }
     
     //if (fDebug && GetBoolArg("-printmining"))
-        //printf("MineProbablePrimeChain() : %u tests (%u primes and %u %d-chains) in %uus\n", nTests, nPrimesHit, nChainsHit, nStatsChainLength, (unsigned int) (GetTimeMicros() - nStart));
+        //printf("MineProbablePrimeChain() : %u tests (%u primes) in %uus\n", nTests, nPrimesHit, (unsigned int) (GetTimeMicros() - nStart));
     
     return false; // stop as new block arrived
 }
