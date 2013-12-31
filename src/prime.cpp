@@ -112,7 +112,7 @@ void PrintMinerStatistics()
     ResetMinerStatistics();
 }
 
-void PrintCompactStatistics(std::vector<unsigned int> &vFoundChainCounter)
+void PrintCompactStatistics(volatile unsigned int vFoundChainCounter[nMaxChainLength])
 {
     std::string strOutput = strprintf("%s chainstats ", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
     for (unsigned int i = 0; i < nMaxChainLength; i++)
@@ -806,7 +806,7 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
 boost::thread_specific_ptr<CSieveOfEratosthenes> psieve;
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev, std::vector<unsigned int>& vChainsFound)
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev, unsigned int vChainsFound[nMaxChainLength])
 {
     CSieveOfEratosthenes *lpsieve;
     nProbableChainLength = 0;
@@ -1246,4 +1246,31 @@ double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsi
     const double dExtendedSieveAverageMultiplier = dExtendedSieveWeightedSum / dExtendedSieveCandidates;
 
     return (1.781072 * log((double)std::max(1u, nSieveWeaveOptimalPrime)) / (255.0 * dLogTwo + dLogOneAndHalf + log(dFixedMultiplier) + log(nAverageCandidateMultiplier) + dLogTwo * nChainPrimeNum + log(dExtendedSieveAverageMultiplier)));
+}
+
+// Esimate the prime probablity of numbers that haven't been sieved
+double EstimateNormalPrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum)
+{
+    const unsigned int nAverageCandidateMultiplier = nSieveSize / 2;
+    double dFixedMultiplier = 1.0;
+    for (unsigned int i = 0; vPrimes[i] <= nPrimorialMultiplier; i++)
+        dFixedMultiplier *= vPrimes[i];
+    for (unsigned int i = 0; vPrimes[i] <= nPrimorialHashFactor; i++)
+        dFixedMultiplier /= vPrimes[i];
+
+    double dExtendedSieveWeightedSum = 0.5 * nSieveSize;
+    double dExtendedSieveCandidates = nSieveSize;
+    for (unsigned int i = 0; i < nSieveExtensions; i++)
+    {
+        dExtendedSieveWeightedSum += 0.75 * (nSieveSize * (2 << i));
+        dExtendedSieveCandidates += nSieveSize / 2;
+    }
+    const double dExtendedSieveAverageMultiplier = dExtendedSieveWeightedSum / dExtendedSieveCandidates;
+
+    // The primorial is implicitly filtering out the first few prime factors
+    double dPrimorialBoost = 1.0;
+    for (unsigned int i = 0; vPrimes[i] <= nPrimorialMultiplier; i++)
+        dPrimorialBoost *= vPrimes[i] / (vPrimes[i] - 1);
+
+    return (dPrimorialBoost / (255.0 * dLogTwo + dLogOneAndHalf + log(dFixedMultiplier) + log(nAverageCandidateMultiplier) + dLogTwo * nChainPrimeNum + log(dExtendedSieveAverageMultiplier)));
 }

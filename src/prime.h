@@ -64,7 +64,7 @@ void InitPrimeMiner();
 // Print miner statistics
 void PrintMinerStatistics();
 // Print compact statistics
-void PrintCompactStatistics(std::vector<unsigned int> &vFoundChainCounter);
+void PrintCompactStatistics(volatile unsigned int vFoundChainCounter[nMaxChainLength]);
 // Get next prime number of p
 bool PrimeTableGetNextPrime(unsigned int& p);
 // Get previous prime number of p
@@ -130,10 +130,12 @@ std::string GetPrimeOriginPrimorialForm(CBigNum& bnPrimeChainOrigin);
 /********************/
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev, std::vector<unsigned int>& vChainsFound);
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev, unsigned int vChainsFound[nMaxChainLength]);
 
 // Estimate the probability of primality for a number in a candidate chain
 double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum);
+// Esimate the prime probablity of numbers that haven't been sieved
+double EstimateNormalPrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum);
 
 #if defined(__i386__) || defined(_M_IX86) || defined(_X86_) || defined(__x86_64__) || defined(_M_X64)
 #define USE_ROTATE

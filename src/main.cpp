@@ -71,6 +71,7 @@ const string strMessageMagic = "Primecoin Signed Message:\n";
 
 double dPrimesPerSec = 0.0;
 double dChainsPerDay = 0.0;
+double dBlocksPerDay = 0.0;
 int64 nHPSTimerStart = 0;
 
 // Settings
@@ -4669,7 +4670,27 @@ void static BitcoinMiner(CWallet *pwallet)
         {
             unsigned int nTests = 0;
             unsigned int nPrimesHit = 0;
-            std::vector<unsigned int> vChainsFound (nMaxChainLength, 0);
+            unsigned int vChainsFound[nMaxChainLength];
+            for (unsigned int i = 0; i < nMaxChainLength; i++)
+                vChainsFound[i] = 0;
+
+            // Meter primes/sec
+            static volatile int64 nPrimeCounter = 0;
+            static volatile int64 nTestCounter = 0;
+            static volatile double dChainExpected = 0.0;
+            static volatile double dBlockExpected = 0.0;
+            static volatile unsigned int vFoundChainCounter[nMaxChainLength];
+            int64 nMillisNow = GetTimeMillis();
+            if (nHPSTimerStart == 0)
+            {
+                nHPSTimerStart = nMillisNow;
+                nPrimeCounter = 0;
+                nTestCounter = 0;
+                dChainExpected = 0.0;
+                dBlockExpected = 0.0;
+                for (unsigned int i = 0; i < nMaxChainLength; i++)
+                    vFoundChainCounter[i] = 0;
+            }
 
             // Primecoin: adjust round primorial so that the generated prime candidates meet the minimum
             mpz_class mpzMultiplierMin = mpzPrimeMin * nHashFactor / mpzHash + 1;
@@ -4698,60 +4719,50 @@ void static BitcoinMiner(CWallet *pwallet)
             nRoundTests += nTests;
             nRoundPrimesHit += nPrimesHit;
 
-            // Meter primes/sec
-            static volatile int64 nPrimeCounter;
-            static volatile int64 nTestCounter;
-            static double dChainExpected;
-            static std::vector<unsigned int> vFoundChainCounter (nMaxChainLength, 0);
-            int64 nMillisNow = GetTimeMillis();
-            if (nHPSTimerStart == 0)
-            {
-                nHPSTimerStart = nMillisNow;
-                nPrimeCounter = 0;
-                nTestCounter = 0;
-                dChainExpected = 0;
-            }
-            else
-            {
 #ifdef __GNUC__
-                // Use atomic increment
-                __sync_add_and_fetch(&nPrimeCounter, nPrimesHit);
-                __sync_add_and_fetch(&nTestCounter, nTests);
-                __sync_add_and_fetch(&nTotalTests, nTests);
-                for (unsigned int i = 0; i < nMaxChainLength; i++)
-                {
-                    __sync_add_and_fetch(&vTotalChainsFound[i], vChainsFound[i]);
-                    __sync_add_and_fetch(&vFoundChainCounter[i], vChainsFound[i]);
-                }
-#else
-                nPrimeCounter += nPrimesHit;
-                nTestCounter += nTests;
-                nTotalTests += nTests;
-                for (unsigned int i = 0; i < nMaxChainLength; i++)
-                {
-                    vTotalChainsFound[i] += vChainsFound[i];
-                    vFoundChainCounter[i] += vChainsFound[i];
-                }
-#endif
+            // Use atomic increment
+            __sync_add_and_fetch(&nPrimeCounter, nPrimesHit);
+            __sync_add_and_fetch(&nTestCounter, nTests);
+            __sync_add_and_fetch(&nTotalTests, nTests);
+            for (unsigned int i = 0; i < nMaxChainLength; i++)
+            {
+                __sync_add_and_fetch(&vTotalChainsFound[i], vChainsFound[i]);
+                __sync_add_and_fetch(&vFoundChainCounter[i], vChainsFound[i]);
             }
+#else
+            nPrimeCounter += nPrimesHit;
+            nTestCounter += nTests;
+            nTotalTests += nTests;
+            for (unsigned int i = 0; i < nMaxChainLength; i++)
+            {
+                vTotalChainsFound[i] += vChainsFound[i];
+                vFoundChainCounter[i] += vChainsFound[i];
+            }
+#endif
+
+            nMillisNow = GetTimeMillis();
             if (nMillisNow - nHPSTimerStart > 60000)
             {
                 LOCK(cs);
+                nMillisNow = GetTimeMillis();
                 if (nMillisNow - nHPSTimerStart > 60000)
                 {
-                    double dPrimesPerMinute = 60000.0 * nPrimeCounter / (nMillisNow - nHPSTimerStart);
-                    dPrimesPerSec = dPrimesPerMinute / 60.0;
-                    double dTestsPerMinute = 60000.0 * nTestCounter / (nMillisNow - nHPSTimerStart);
-                    dChainsPerDay = 86400000.0 * dChainExpected / (GetTimeMillis() - nHPSTimerStart);
+                    int64 nTimeDiffMillis = nMillisNow - nHPSTimerStart;
                     nHPSTimerStart = nMillisNow;
+                    double dPrimesPerMinute = 60000.0 * nPrimeCounter / nTimeDiffMillis;
+                    dPrimesPerSec = dPrimesPerMinute / 60.0;
+                    double dTestsPerMinute = 60000.0 * nTestCounter / nTimeDiffMillis;
+                    dChainsPerDay = 86400000.0 * dChainExpected / nTimeDiffMillis;
+                    dBlocksPerDay = 86400000.0 * dBlockExpected / nTimeDiffMillis;
                     nPrimeCounter = 0;
                     nTestCounter = 0;
                     dChainExpected = 0;
+                    dBlockExpected = 0;
                     static int64 nLogTime = 0;
                     if (nMillisNow - nLogTime > 59000)
                     {
                         nLogTime = nMillisNow;
-                        printf("%s primemeter %9.0f prime/h %9.0f test/h %3.6f chain/d\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerMinute * 60.0, dTestsPerMinute * 60.0, dChainsPerDay);
+                        printf("%s primemeter %9.0f prime/h %9.0f test/h %3.6f chain/d %3.6f block/d\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerMinute * 60.0, dTestsPerMinute * 60.0, dChainsPerDay, dBlocksPerDay);
                         PrintCompactStatistics(vFoundChainCounter);
                     }
                 }
@@ -4780,21 +4791,38 @@ void static BitcoinMiner(CWallet *pwallet)
                 dTimeExpected = (double) nRoundTime / nCalcRoundTests;
                 double dRoundChainExpected = (double) nRoundTests;
                 unsigned int nTargetLength = TargetGetLength(pblock->nBits);
+                unsigned int nRequestedLength = nTargetLength;
                 // Override target length if requested
                 if (nSieveTargetLength > 0)
-                    nTargetLength = nSieveTargetLength;
-                for (unsigned int n = 0; n < nTargetLength; n++)
+                    nRequestedLength = nSieveTargetLength;
+                // Calculate expected number of chains for requested length
+                for (unsigned int n = 0; n < nRequestedLength; n++)
                 {
                     double dPrimeProbability = EstimateCandidatePrimeProbability(nPrimorialMultiplier, n);
-                    dTimeExpected = dTimeExpected / max(0.01, dPrimeProbability);
+                    dTimeExpected /= dPrimeProbability;
                     dRoundChainExpected *= dPrimeProbability;
                 }
                 dChainExpected += dRoundChainExpected;
+                // Calculate expected number of blocks
+                double dRoundBlockExpected = dRoundChainExpected;
+                for (unsigned int n = nRequestedLength; n < nTargetLength; n++)
+                {
+                    double dPrimeProbability = EstimateCandidatePrimeProbability(nPrimorialMultiplier, n);
+                    dTimeExpected /= dPrimeProbability;
+                    dRoundBlockExpected *= dPrimeProbability;
+                }
+                // Calculate the effect of fractional difficulty
+                double dFractionalDiff = GetPrimeDifficulty(pblock->nBits) - nTargetLength;
+                double dExtraPrimeProbability = EstimateNormalPrimeProbability(nPrimorialMultiplier, nTargetLength);
+                double dDifficultyFactor = ((1.0 - dFractionalDiff) * (1.0 - dExtraPrimeProbability) + dExtraPrimeProbability);
+                dRoundBlockExpected *= dDifficultyFactor;
+                dTimeExpected /= dDifficultyFactor;
+                dBlockExpected += dRoundBlockExpected;
                 if (fDebug && GetBoolArg("-printmining"))
                 {
                     double dPrimeProbabilityBegin = EstimateCandidatePrimeProbability(nPrimorialMultiplier, 0);
                     double dPrimeProbabilityEnd = EstimateCandidatePrimeProbability(nPrimorialMultiplier, nTargetLength - 1);
-                    printf("PrimecoinMiner() : Round primorial=%u tests=%u primes=%u time=%uus pprob=%1.6f pprob2=%1.6f tochain=%6.3fd expect=%3.9f\n", nPrimorialMultiplier, nRoundTests, nRoundPrimesHit, (unsigned int) nRoundTime, dPrimeProbabilityBegin, dPrimeProbabilityEnd, ((dTimeExpected/1000000.0))/86400.0, dRoundChainExpected);
+                    printf("PrimecoinMiner() : Round primorial=%u tests=%u primes=%u time=%uus pprob=%1.6f pprob2=%1.6f pprobextra=%1.6f tochain=%6.3fd expect=%3.12f expectblock=%3.12f\n", nPrimorialMultiplier, nRoundTests, nRoundPrimesHit, (unsigned int) nRoundTime, dPrimeProbabilityBegin, dPrimeProbabilityEnd, dExtraPrimeProbability, ((dTimeExpected/1000000.0))/86400.0, dRoundChainExpected, dRoundBlockExpected);
                 }
 
                 // Primecoin: update time and nonce

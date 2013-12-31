@@ -160,6 +160,7 @@ Value getmininginfo(const Array& params, bool fHelp)
 
     Object obj;
     obj.push_back(Pair("blocks",        (int)nBestHeight));
+    obj.push_back(Pair("blocksperday",  dBlocksPerDay));
     obj.push_back(Pair("chainsperday",  dChainsPerDay));
     obj.push_back(Pair("currentblocksize",(uint64_t)nLastBlockSize));
     obj.push_back(Pair("currentblocktx",(uint64_t)nLastBlockTx));
