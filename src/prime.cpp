@@ -14,6 +14,7 @@ std::vector<unsigned int> vPrimes;
 unsigned int nSieveSize = nDefaultSieveSize;
 unsigned int nSieveFilterPrimes = nDefaultSieveFilterPrimes;
 unsigned int nSieveExtensions = nDefaultSieveExtensions;
+unsigned int nL1CacheSize = nDefaultL1CacheSize;
 bool fBetterStatistics = false;
 
 static unsigned int int_invert(unsigned int a, unsigned int nPrime);
@@ -27,6 +28,9 @@ void GeneratePrimeTable()
     nSieveSize = std::max(std::min(nSieveSize, nMaxSieveSize), nMinSieveSize);
     nSieveFilterPrimes = (unsigned int)GetArg("-sievefilterprimes", nDefaultSieveFilterPrimes);
     nSieveFilterPrimes = std::max(std::min(nSieveFilterPrimes, nMaxSieveFilterPrimes), nMinSieveFilterPrimes);
+    nL1CacheSize = (unsigned int)GetArg("-l1cacheelements", nDefaultL1CacheSize);
+    nL1CacheSize = std::max(std::min(nL1CacheSize, nMaxL1CacheSize), nMinL1CacheSize);
+    nL1CacheSize = nL1CacheSize / 8 * 8; // make it a multiple of 8
     fBetterStatistics = GetBoolArg("-betterstats");
     printf("GeneratePrimeTable() : setting nSieveExtensions = %u, nSieveSize = %u, nSieveFilterPrimes = %u\n", nSieveExtensions, nSieveSize, nSieveFilterPrimes);
 
@@ -822,7 +826,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
     {
         // Build sieve
         nStart = GetTimeMicros();
-        lpsieve = new CSieveOfEratosthenes(nSieveSize, nSieveFilterPrimes, nSieveExtensions, nBits, mpzHash, mpzFixedMultiplier, pindexPrev);
+        lpsieve = new CSieveOfEratosthenes(nSieveSize, nSieveFilterPrimes, nSieveExtensions, nL1CacheSize, nBits, mpzHash, mpzFixedMultiplier, pindexPrev);
         while (lpsieve->Weave() && pindexPrev == pindexBest);
         nSieveGenTime = GetTimeMicros() - nStart;
         if (fDebug && GetBoolArg("-printmining"))
@@ -1067,9 +1071,7 @@ bool CSieveOfEratosthenes::Weave()
         }
     }
 
-    // Number of elements that are likely to fit in L1 cache
-    // NOTE: This needs to be a multiple of nWordBits
-    const unsigned int nL1CacheElements = 224000;
+    // Process the array in chunks that fit the L1 cache
     const unsigned int nArrayRounds = (nSieveSize + nL1CacheElements - 1) / nL1CacheElements;
 
     // Calculate the number of CC1 and CC2 layers needed for BiTwin candidates

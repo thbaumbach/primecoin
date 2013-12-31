@@ -30,6 +30,10 @@ static const unsigned int nMaxSieveSize = 10000000u;
 static const unsigned int nDefaultSieveSize = 1000000u;
 static const unsigned int nMinSieveSize = 100000u;
 extern unsigned int nSieveSize;
+static const unsigned int nMaxL1CacheSize = 128000u;
+static const unsigned int nDefaultL1CacheSize = 28000u;
+static const unsigned int nMinL1CacheSize = 12000u;
+extern unsigned int nL1CacheSize;
 static const uint256 hashBlockHeaderLimit = (uint256(1) << 255);
 static const CBigNum bnOne = 1;
 static const CBigNum bnPrimeMax = (bnOne << 2000) - 1;
@@ -189,6 +193,7 @@ class CSieveOfEratosthenes
     unsigned int nChainLength; // target chain length
     unsigned int nSieveLayers; // sieve layers
     unsigned int nPrimes; // number of times to weave the sieve
+    unsigned int nL1CacheElements; // number of bits that can be stored in L1 cache
 
     CBlockIndex* pindexPrev;
 
@@ -203,7 +208,7 @@ class CSieveOfEratosthenes
     void ProcessMultiplier(sieve_word_t *vfComposites, const unsigned int nMinMultiplier, const unsigned int nMaxMultiplier, const std::vector<unsigned int>& vPrimes, unsigned int *vMultipliers, unsigned int nLayerSeq);
 
 public:
-    CSieveOfEratosthenes(unsigned int nSieveSize, unsigned int nSieveFilterPrimes, unsigned int nSieveExtensions, unsigned int nBits, mpz_class& mpzHash, mpz_class& mpzFixedMultiplier, CBlockIndex* pindexPrev)
+    CSieveOfEratosthenes(unsigned int nSieveSize, unsigned int nSieveFilterPrimes, unsigned int nSieveExtensions, unsigned int nL1CacheSize, unsigned int nBits, mpz_class& mpzHash, mpz_class& mpzFixedMultiplier, CBlockIndex* pindexPrev)
     {
         this->nSieveSize = nSieveSize;
         this->nSieveFilterPrimes = nSieveFilterPrimes;
@@ -245,6 +250,7 @@ public:
         // Filter only a certain number of prime factors
         // Most composites are still found
         nPrimes = nSieveFilterPrimes;
+        nL1CacheElements = nL1CacheSize * 8;
     }
 
     ~CSieveOfEratosthenes()
