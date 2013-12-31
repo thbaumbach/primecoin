@@ -14,6 +14,7 @@ std::vector<unsigned int> vPrimes;
 unsigned int nSieveSize = nDefaultSieveSize;
 unsigned int nSievePercentage = nDefaultSievePercentage;
 unsigned int nSieveExtensions = nDefaultSieveExtensions;
+bool fBetterStatistics = false;
 
 static unsigned int int_invert(unsigned int a, unsigned int nPrime);
 
@@ -26,7 +27,9 @@ void GeneratePrimeTable()
     nSievePercentage = std::max(std::min(nSievePercentage, nMaxSievePercentage), nMinSievePercentage);
     nSieveSize = (unsigned int)GetArg("-sievesize", nDefaultSieveSize);
     nSieveSize = std::max(std::min(nSieveSize, nMaxSieveSize), nMinSieveSize);
+    fBetterStatistics = GetBoolArg("-betterstats");
     printf("GeneratePrimeTable() : setting nSieveExtensions = %u, nSievePercentage = %u, nSieveSize = %u\n", nSieveExtensions, nSievePercentage, nSieveSize);
+
     const unsigned nPrimeTableLimit = nSieveSize;
     vPrimes.clear();
     // Generate prime table using sieve of Eratosthenes
@@ -42,6 +45,82 @@ void GeneratePrimeTable()
         if (!vfComposite[n])
             vPrimes.push_back(n);
     printf("GeneratePrimeTable() : prime table [1, %u] generated with %u primes\n", nPrimeTableLimit, (unsigned int) vPrimes.size());
+}
+
+// Mining statistics
+uint64 nTotalTests;
+unsigned int nTotalBlocksFound;
+std::vector<uint64> vTotalChainsFound;
+boost::timer::cpu_timer minerTimer;
+int nSieveTargetLength = -1;
+
+void ResetMinerStatistics()
+{
+    nTotalTests = 0;
+    nTotalBlocksFound = 0;
+    vTotalChainsFound = std::vector<uint64> (nMaxChainLength, 0);
+}
+
+void InitPrimeMiner()
+{
+    ResetMinerStatistics();
+    nSieveTargetLength = std::min((int)GetArg("-sievetargetlength", nDefaultSieveTargetLength), (int)nMaxChainLength);
+    if (nSieveTargetLength > 0)
+        printf("InitPrimeMiner() : Setting sieve target length to %d\n", nSieveTargetLength);
+}
+
+void PrintMinerStatistics()
+{
+    printf("========================================================================\n"
+        "Miner statistics\n"
+        "========================================================================\n");
+
+    boost::timer::cpu_times const elapsed_times(minerTimer.elapsed());
+    int64 nRunningTime = elapsed_times.wall;
+    double dRunningHours = (double)nRunningTime / 3600000000000.0;
+    int64 nCPUTime = elapsed_times.system + elapsed_times.user;
+    double dCPUHours = (double)nCPUTime / 3600000000000.0;
+    printf("\nRunning time: %.4f hours\n", dRunningHours);
+    printf("CPU time: %.4f hours\n", dCPUHours);
+
+    printf("\nTests: %"PRI64u"\n", (long long unsigned) nTotalTests);
+    printf("Blocks found: %u\n", nTotalBlocksFound);
+
+    // Find the last non-zero chain count
+    unsigned int nMaxPrintLength = nMaxChainLength;
+    for (int i = nMaxChainLength - 1; i >= 0; i--)
+    {
+        if (vTotalChainsFound[i] > 0)
+        {
+            nMaxPrintLength = i + 1;
+            break;
+        }
+    }
+
+    printf("\nChain statistics\n");
+    for (unsigned int i = 0; i < nMaxPrintLength; i++)
+        printf("%u-chains: %"PRI64u"\n", i + 1, (long long unsigned) vTotalChainsFound[i]);
+
+    printf("\n========================================================================\n");
+
+    // Reset statistics
+    nHPSTimerStart = 0;
+    ResetMinerStatistics();
+}
+
+void PrintCompactStatistics(std::vector<unsigned int> &vFoundChainCounter)
+{
+    std::string strOutput = strprintf("%s chainstats ", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+    for (unsigned int i = 0; i < nMaxChainLength; i++)
+    {
+        if (vFoundChainCounter[i])
+            strOutput += strprintf(" %uch: %u", i + 1, vFoundChainCounter[i]);
+    }
+    printf("%s\n", strOutput.c_str());
+
+    // Reset the statistics
+    for (unsigned int i = 0; i < nMaxChainLength; i++)
+        vFoundChainCounter[i] = 0;
 }
 
 // Get next prime number of p
@@ -666,7 +745,13 @@ static bool ProbableCunninghamChainTestFast(const mpz_class& n, bool fSophieGerm
         }
     }
 
-    return (TargetGetLength(nProbableChainLength) >= 2);
+    if (!fBetterStatistics)
+        return (TargetGetLength(nProbableChainLength) >= 2);
+    else
+    {
+        // Less optimized version for better statistics
+        return (TargetGetLength(nProbableChainLength) >= 1);
+    }
 }
 
 // Test probable prime chain for: nOrigin
@@ -719,7 +804,7 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
 boost::thread_specific_ptr<CSieveOfEratosthenes> psieve;
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& nChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev)
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& nChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev, std::vector<unsigned int>& vChainsFound)
 {
     CSieveOfEratosthenes *lpsieve;
     nProbableChainLength = 0;
@@ -784,7 +869,20 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
         nTests++;
         mpzChainOrigin = mpzHashMultiplier * nTriedMultiplier;
         nChainLength = 0;
-        if (ProbablePrimeChainTestFast(mpzChainOrigin, testParams))
+        bool fChainFound = ProbablePrimeChainTestFast(mpzChainOrigin, testParams);
+        nProbableChainLength = nChainLength;
+        unsigned int nChainPrimeLength = TargetGetLength(nChainLength);
+
+        // Collect mining statistics
+        if(nChainPrimeLength >= 1)
+        {
+            nPrimesHit++;
+            if(nChainPrimeLength >= nStatsChainLength)
+                nChainsHit++;
+            vChainsFound[nChainPrimeLength - 1]++;
+        }
+
+        if (fChainFound)
         {
             mpz_class mpzPrimeChainMultiplier = mpzFixedMultiplier * nTriedMultiplier;
             CBigNum bnPrimeChainMultiplier;
@@ -793,21 +891,8 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             printf("nTriedMultiplier = %u\n", nTriedMultiplier); // Debugging
             printf("Probable prime chain found for block=%s!!\n  Target: %s\n  Chain: %s\n", block.GetHash().GetHex().c_str(),
                 TargetToString(block.nBits).c_str(), GetPrimeChainName(nCandidateType, nChainLength).c_str());
-            nProbableChainLength = nChainLength;
             return true;
         }
-        nProbableChainLength = nChainLength;
-        if(TargetGetLength(nProbableChainLength) >= 1)
-            nPrimesHit++;
-        if(TargetGetLength(nProbableChainLength) >= nStatsChainLength)
-            nChainsHit++;
-        // Debugging
-#if 0
-        if(TargetGetLength(nProbableChainLength) >= 1)
-            printf("Multiplier %u gave a prime\n", nTriedMultiplier);
-        else
-            printf("Multiplier %u gave nothing\n", nTriedMultiplier);
-#endif
     }
     
     //if (fDebug && GetBoolArg("-printmining"))

@@ -2733,6 +2733,7 @@ bool LoadBlockIndex()
 
     // Primecoin: Generate prime table when starting up
     GeneratePrimeTable();
+    InitPrimeMiner();
 
     //
     // Load block index from databases
@@ -4559,6 +4560,8 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
 
 void static BitcoinMiner(CWallet *pwallet)
 {
+    static CCriticalSection cs;
+    static bool fTimerStarted = false;
     printf("PrimecoinMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
     RenameThread("primecoin-miner");
@@ -4571,6 +4574,17 @@ void static BitcoinMiner(CWallet *pwallet)
     double dTimeExpected = 0;   // time expected to prime chain (micro-second)
     int64 nSieveGenTime = 0; // how many milliseconds sieve generation took
     bool fIncrementPrimorial = true; // increase or decrease primorial factor
+    static bool fStatsPrinted = false;
+
+    if (!fTimerStarted)
+    {
+        LOCK(cs);
+        if (!fTimerStarted)
+        {
+            fTimerStarted = true;
+            minerTimer.start();
+        }
+    }
 
     // Many machines may be using the same key if they are sharing the same wallet
     // Make extra nonce unique by setting it to a modulo of the high resolution clock's value
@@ -4657,6 +4671,7 @@ void static BitcoinMiner(CWallet *pwallet)
             unsigned int nTests = 0;
             unsigned int nPrimesHit = 0;
             unsigned int nChainsHit = 0;
+            std::vector<unsigned int> vChainsFound (nMaxChainLength, 0);
 
             // Primecoin: adjust round primorial so that the generated prime candidates meet the minimum
             mpz_class mpzMultiplierMin = mpzPrimeMin * nHashFactor / mpzHash + 1;
@@ -4675,12 +4690,12 @@ void static BitcoinMiner(CWallet *pwallet)
 
             // Primecoin: mine for prime chain
             unsigned int nProbableChainLength;
-            if (MineProbablePrimeChain(*pblock, mpzFixedMultiplier, fNewBlock, nTriedMultiplier, nProbableChainLength, nTests, nPrimesHit, nChainsHit, mpzHash, nPrimorialMultiplier, nSieveGenTime, pindexPrev))
+            if (MineProbablePrimeChain(*pblock, mpzFixedMultiplier, fNewBlock, nTriedMultiplier, nProbableChainLength, nTests, nPrimesHit, nChainsHit, mpzHash, nPrimorialMultiplier, nSieveGenTime, pindexPrev, vChainsFound))
             {
                 SetThreadPriority(THREAD_PRIORITY_NORMAL);
+                nTotalBlocksFound++;
                 CheckWork(pblock, *pwalletMain, reservekey);
                 SetThreadPriority(THREAD_PRIORITY_LOWEST);
-                break;
             }
             nRoundTests += nTests;
             nRoundPrimesHit += nPrimesHit;
@@ -4690,6 +4705,7 @@ void static BitcoinMiner(CWallet *pwallet)
             static volatile int64 nTestCounter;
             static volatile int64 nChainCounter;
             static double dChainExpected;
+            static std::vector<unsigned int> vFoundChainCounter (nMaxChainLength, 0);
             int64 nMillisNow = GetTimeMillis();
             if (nHPSTimerStart == 0)
             {
@@ -4706,35 +4722,45 @@ void static BitcoinMiner(CWallet *pwallet)
                 __sync_add_and_fetch(&nPrimeCounter, nPrimesHit);
                 __sync_add_and_fetch(&nTestCounter, nTests);
                 __sync_add_and_fetch(&nChainCounter, nChainsHit);
+                __sync_add_and_fetch(&nTotalTests, nTests);
+                for (unsigned int i = 0; i < nMaxChainLength; i++)
+                {
+                    __sync_add_and_fetch(&vTotalChainsFound[i], vChainsFound[i]);
+                    __sync_add_and_fetch(&vFoundChainCounter[i], vChainsFound[i]);
+                }
 #else
                 nPrimeCounter += nPrimesHit;
                 nTestCounter += nTests;
                 nChainCounter += nChainsHit;
+                nTotalTests += nTests;
+                for (unsigned int i = 0; i < nMaxChainLength; i++)
+                {
+                    vTotalChainsFound[i] += vChainsFound[i];
+                    vFoundChainCounter[i] += vChainsFound[i];
+                }
 #endif
             }
             if (nMillisNow - nHPSTimerStart > 60000)
             {
-                static CCriticalSection cs;
+                LOCK(cs);
+                if (nMillisNow - nHPSTimerStart > 60000)
                 {
-                    LOCK(cs);
-                    if (nMillisNow - nHPSTimerStart > 60000)
+                    double dPrimesPerMinute = 60000.0 * nPrimeCounter / (nMillisNow - nHPSTimerStart);
+                    dPrimesPerSec = dPrimesPerMinute / 60.0;
+                    double dTestsPerMinute = 60000.0 * nTestCounter / (nMillisNow - nHPSTimerStart);
+                    dChainsPerMinute = 60000.0 * nChainCounter / (nMillisNow - nHPSTimerStart);
+                    dChainsPerDay = 86400000.0 * dChainExpected / (GetTimeMillis() - nHPSTimerStart);
+                    nHPSTimerStart = nMillisNow;
+                    nPrimeCounter = 0;
+                    nTestCounter = 0;
+                    nChainCounter = 0;
+                    dChainExpected = 0;
+                    static int64 nLogTime = 0;
+                    if (nMillisNow - nLogTime > 59000)
                     {
-                        double dPrimesPerMinute = 60000.0 * nPrimeCounter / (nMillisNow - nHPSTimerStart);
-                        dPrimesPerSec = dPrimesPerMinute / 60.0;
-                        double dTestsPerMinute = 60000.0 * nTestCounter / (nMillisNow - nHPSTimerStart);
-                        dChainsPerMinute = 60000.0 * nChainCounter / (nMillisNow - nHPSTimerStart);
-                        dChainsPerDay = 86400000.0 * dChainExpected / (GetTimeMillis() - nHPSTimerStart);
-                        nHPSTimerStart = nMillisNow;
-                        nPrimeCounter = 0;
-                        nTestCounter = 0;
-                        nChainCounter = 0;
-                        dChainExpected = 0;
-                        static int64 nLogTime = 0;
-                        if (nMillisNow - nLogTime > 59000)
-                        {
-                            nLogTime = nMillisNow;
-                            printf("%s primemeter %9.0f prime/h %9.0f test/h %4.0f %d-chains/h %3.6f chain/d\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerMinute * 60.0, dTestsPerMinute * 60.0, dChainsPerMinute * 60.0, nStatsChainLength, dChainsPerDay);
-                        }
+                        nLogTime = nMillisNow;
+                        printf("%s primemeter %9.0f prime/h %9.0f test/h %4.0f %d-chains/h %3.6f chain/d\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerMinute * 60.0, dTestsPerMinute * 60.0, dChainsPerMinute * 60.0, nStatsChainLength, dChainsPerDay);
+                        PrintCompactStatistics(vFoundChainCounter);
                     }
                 }
             }
@@ -4761,7 +4787,11 @@ void static BitcoinMiner(CWallet *pwallet)
                 int64 nRoundTime = (GetTimeMicros() - nPrimeTimerStart); 
                 dTimeExpected = (double) nRoundTime / nCalcRoundTests;
                 double dRoundChainExpected = (double) nRoundTests;
-                for (unsigned int n = 0, nTargetLength = TargetGetLength(pblock->nBits); n < nTargetLength; n++)
+                unsigned int nTargetLength = TargetGetLength(pblock->nBits);
+                // Override target length if requested
+                if (nSieveTargetLength > 0)
+                    nTargetLength = nSieveTargetLength;
+                for (unsigned int n = 0; n < nTargetLength; n++)
                 {
                     double dPrimeProbability = EstimateCandidatePrimeProbability(nPrimorialMultiplier, n);
                     dTimeExpected = dTimeExpected / max(0.01, dPrimeProbability);
@@ -4771,7 +4801,6 @@ void static BitcoinMiner(CWallet *pwallet)
                 if (fDebug && GetBoolArg("-printmining"))
                 {
                     double dPrimeProbabilityBegin = EstimateCandidatePrimeProbability(nPrimorialMultiplier, 0);
-                    unsigned int nTargetLength = TargetGetLength(pblock->nBits);
                     double dPrimeProbabilityEnd = EstimateCandidatePrimeProbability(nPrimorialMultiplier, nTargetLength - 1);
                     printf("PrimecoinMiner() : Round primorial=%u tests=%u primes=%u time=%uus pprob=%1.6f pprob2=%1.6f tochain=%6.3fd expect=%3.9f\n", nPrimorialMultiplier, nRoundTests, nRoundPrimesHit, (unsigned int) nRoundTime, dPrimeProbabilityBegin, dPrimeProbabilityEnd, ((dTimeExpected/1000000.0))/86400.0, dRoundChainExpected);
                 }
@@ -4835,6 +4864,16 @@ void static BitcoinMiner(CWallet *pwallet)
     catch (boost::thread_interrupted)
     {
         printf("PrimecoinMiner terminated\n");
+        // Print statistics
+        if (!fStatsPrinted)
+        {
+            LOCK(cs);
+            if (!fStatsPrinted)
+            {
+                fStatsPrinted = true;
+                PrintMinerStatistics();
+            }
+        }
         throw;
     }
 }

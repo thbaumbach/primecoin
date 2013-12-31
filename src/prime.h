@@ -10,6 +10,7 @@
 #include <gmp.h>
 #include <gmpxx.h>
 #include <bitset>
+#include <boost/timer/timer.hpp>
 
 /**********************/
 /* PRIMECOIN PROTOCOL */
@@ -38,6 +39,15 @@ static const mpz_class mpzTwo = 2;
 static const mpz_class mpzPrimeMax = (mpzOne << 2000) - 1;
 static const mpz_class mpzPrimeMin = (mpzOne << 255);
 
+// Mining statistics
+static const unsigned int nMaxChainLength = 24;
+extern uint64 nTotalTests;
+extern unsigned int nTotalBlocksFound;
+extern std::vector<uint64> vTotalChainsFound;
+extern boost::timer::cpu_timer minerTimer;
+static const unsigned int nDefaultSieveTargetLength = -1;
+extern int nSieveTargetLength;
+
 // Estimate how many 5-chains are found per hour
 static const unsigned int nStatsChainLength = 5;
 
@@ -46,6 +56,14 @@ extern unsigned int nTargetMinLength;
 
 // Generate small prime table
 void GeneratePrimeTable();
+// Reset the miner statistics
+void ResetMinerStatistics();
+// Initialize the miner
+void InitPrimeMiner();
+// Print miner statistics
+void PrintMinerStatistics();
+// Print compact statistics
+void PrintCompactStatistics(std::vector<unsigned int> &vFoundChainCounter);
 // Get next prime number of p
 bool PrimeTableGetNextPrime(unsigned int& p);
 // Get previous prime number of p
@@ -111,7 +129,7 @@ std::string GetPrimeOriginPrimorialForm(CBigNum& bnPrimeChainOrigin);
 /********************/
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& nChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev);
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, unsigned int& nChainsHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev, std::vector<unsigned int>& vChainsFound);
 
 // Estimate the probability of primality for a number in a candidate chain
 double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum);
@@ -222,6 +240,9 @@ public:
         memset(vfExtendedCompositeCunningham1, 0, nSieveExtensions * nCandidatesBytes);
         memset(vfExtendedCompositeCunningham2, 0, nSieveExtensions * nCandidatesBytes);
         nChainLength = TargetGetLength(nBits);
+        // Override target length if requested
+        if (nSieveTargetLength > 0)
+            nChainLength = nSieveTargetLength;
         nSieveLayers = nChainLength + nSieveExtensions;
 
         // Process only a set percentage of the primes
