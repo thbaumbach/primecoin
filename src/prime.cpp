@@ -604,16 +604,14 @@ public:
 
     // Values specific to a round
     unsigned int nBits;
-    unsigned int nPrimorialSeq;
     unsigned int nCandidateType;
 
     // Results
     unsigned int nChainLength;
 
-    CPrimalityTestParams(unsigned int nBits, unsigned int nPrimorialSeq)
+    CPrimalityTestParams(unsigned int nBits)
     {
         this->nBits = nBits;
-        this->nPrimorialSeq = nPrimorialSeq;
         nChainLength = 0;
         mpz_init(mpzE);
         mpz_init(mpzR);
@@ -836,14 +834,9 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
 
     mpz_class mpzHashMultiplier = mpzHash * mpzFixedMultiplier;
     mpz_class mpzChainOrigin;
-    
-    // Determine the sequence number of the round primorial
-    unsigned int nPrimorialSeq = 0;
-    while (vPrimes[nPrimorialSeq + 1] <= nPrimorialMultiplier)
-        nPrimorialSeq++;
 
     // Allocate GMP variables for primality tests
-    CPrimalityTestParams testParams(nBits, nPrimorialSeq);
+    CPrimalityTestParams testParams(nBits);
 
     nStart = GetTimeMicros();
     
