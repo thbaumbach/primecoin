@@ -4589,6 +4589,10 @@ void static BitcoinMiner(CWallet *pwallet)
         nPrimorialMultiplier = nFixedPrimorial;
     }
 
+    // Allocate data structures for mining
+    CSieveOfEratosthenes sieve;
+    CPrimalityTestParams testParams;
+
     if (!fTimerStarted)
     {
         LOCK(cs);
@@ -4640,7 +4644,6 @@ void static BitcoinMiner(CWallet *pwallet)
         //
         int64 nStart = GetTime();
         bool fNewBlock = true;
-        unsigned int nTriedMultiplier = 0;
 
         // Primecoin: try to find hash divisible by primorial
         unsigned int nHashFactor = PrimorialFast(nPrimorialHashFactor);
@@ -4722,7 +4725,7 @@ void static BitcoinMiner(CWallet *pwallet)
 
             // Primecoin: mine for prime chain
             unsigned int nProbableChainLength;
-            if (MineProbablePrimeChain(*pblock, mpzFixedMultiplier, fNewBlock, nTriedMultiplier, nProbableChainLength, nTests, nPrimesHit, mpzHash, nPrimorialMultiplier, nSieveGenTime, pindexPrev, vChainsFound))
+            if (MineProbablePrimeChain(*pblock, mpzFixedMultiplier, fNewBlock, nProbableChainLength, nTests, nPrimesHit, mpzHash, nSieveGenTime, pindexPrev, vChainsFound, sieve, testParams))
             {
                 SetThreadPriority(THREAD_PRIORITY_NORMAL);
                 nTotalBlocksFound++;
@@ -4839,7 +4842,7 @@ void static BitcoinMiner(CWallet *pwallet)
                     // Calculate average expected blocks per time
                     double dAverageBlockExpected = dSumBlockExpected / ((double) nSumRoundTime / 1000000.0);
                     if (fDebug && GetBoolArg("-printprimorial"))
-                        printf("PrimecoinMiner() : round primorial = %u, average block/s = %3.14f\n", nPrimorialMultiplier, dAverageBlockExpected);
+                        printf("PrimecoinMiner() : Rounds num=%u primorial=%u block/s=%3.14f\n", nRoundNum, nPrimorialMultiplier, dAverageBlockExpected);
                     // Compare to previous value
                     if (dAverageBlockExpected > dAverageBlockExpectedPrev)
                         nAdjustPrimorial = (nPrimorialMultiplier > nPrimorialMultiplierPrev) ? 1 : -1;

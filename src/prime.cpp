@@ -593,43 +593,6 @@ unsigned int EstimateWorkTransition(unsigned int nPrevWorkTransition, unsigned i
 /* PRIMECOIN MINING */
 /********************/
 
-class CPrimalityTestParams
-{
-public:
-    // GMP variables
-    mpz_t mpzE;
-    mpz_t mpzR;
-    mpz_t mpzRplusOne;
-    
-    // GMP C++ variables
-    mpz_class mpzOriginMinusOne;
-    mpz_class mpzOriginPlusOne;
-    mpz_class N;
-
-    // Values specific to a round
-    unsigned int nBits;
-    unsigned int nCandidateType;
-
-    // Results
-    unsigned int nChainLength;
-
-    CPrimalityTestParams(unsigned int nBits)
-    {
-        this->nBits = nBits;
-        nChainLength = 0;
-        mpz_init(mpzE);
-        mpz_init(mpzR);
-        mpz_init(mpzRplusOne);
-    }
-
-    ~CPrimalityTestParams()
-    {
-        mpz_clear(mpzE);
-        mpz_clear(mpzR);
-        mpz_clear(mpzRplusOne);
-    }
-};
-
 // Check Fermat probable primality test (2-PRP): 2 ** (n-1) = 1 (mod n)
 // true: n is probable prime
 // false: n is composite; set fractional length in the nLength output
@@ -764,9 +727,9 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
 {
     const unsigned int nBits = testParams.nBits;
     const unsigned int nCandidateType = testParams.nCandidateType;
-    unsigned int& nChainLength = testParams.nChainLength;
     mpz_class& mpzOriginMinusOne = testParams.mpzOriginMinusOne;
     mpz_class& mpzOriginPlusOne = testParams.mpzOriginPlusOne;
+    unsigned int& nChainLength = testParams.nChainLength;
     nChainLength = 0;
 
     // Test for Cunningham Chain of first kind
@@ -802,69 +765,61 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
     return (nChainLength >= nBits);
 }
 
-// Sieve for mining
-boost::thread_specific_ptr<CSieveOfEratosthenes> psieve;
-
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, unsigned int nPrimorialMultiplier, int64& nSieveGenTime, CBlockIndex* pindexPrev, unsigned int vChainsFound[nMaxChainLength])
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, int64& nSieveGenTime, CBlockIndex* pindexPrev, unsigned int vChainsFound[nMaxChainLength], CSieveOfEratosthenes &sieve, CPrimalityTestParams &testParams)
 {
-    CSieveOfEratosthenes *lpsieve;
     nProbableChainLength = 0;
     nTests = 0;
     nPrimesHit = 0;
-    const unsigned int nBits = block.nBits;
 
-    if (fNewBlock && psieve.get() != NULL)
+    // References to test parameters
+    unsigned int &nBits = testParams.nBits;
+    unsigned int& nChainLength = testParams.nChainLength;
+    unsigned int& nCandidateType = testParams.nCandidateType;
+    nBits = block.nBits;
+
+    if (fNewBlock)
     {
         // Must rebuild the sieve
-        psieve.reset();
+        sieve.Deplete();
     }
     fNewBlock = false;
 
     int64 nStart; // microsecond timer
-    if ((lpsieve = psieve.get()) == NULL)
+    if (!sieve.IsReady() || sieve.IsDepleted())
     {
         // Build sieve
         nStart = GetTimeMicros();
-        lpsieve = new CSieveOfEratosthenes(nSieveSize, nSieveFilterPrimes, nSieveExtensions, nL1CacheSize, nBits, mpzHash, mpzFixedMultiplier, pindexPrev);
-        while (lpsieve->Weave() && pindexPrev == pindexBest);
+        sieve.Reset(nSieveSize, nSieveFilterPrimes, nSieveExtensions, nL1CacheSize, nBits, mpzHash, mpzFixedMultiplier, pindexPrev);
+        sieve.Weave();
         nSieveGenTime = GetTimeMicros() - nStart;
         if (fDebug && GetBoolArg("-printmining"))
-            printf("MineProbablePrimeChain() : new sieve (%u/%u@%u%%) ready in %uus\n", lpsieve->GetCandidateCount(), nSieveSize, lpsieve->GetProgressPercentage(), (unsigned int) nSieveGenTime);
-        psieve.reset(lpsieve);
+            printf("MineProbablePrimeChain() : new sieve (%u/%u@%u%%) ready in %uus\n", sieve.GetCandidateCount(), nSieveSize, sieve.GetProgressPercentage(), (unsigned int) nSieveGenTime);
         return false; // sieve generation takes time so return now
     }
 
     mpz_class mpzHashMultiplier = mpzHash * mpzFixedMultiplier;
     mpz_class mpzChainOrigin;
 
-    // Allocate GMP variables for primality tests
-    CPrimalityTestParams testParams(nBits);
-
     nStart = GetTimeMicros();
-    
-    // References to test parameters
-    unsigned int& nChainLength = testParams.nChainLength;
-    unsigned int& nCandidateType = testParams.nCandidateType;
-    
+
     // Number of candidates to be tested during a single call to this function
     const unsigned int nTestsAtOnce = 500;
 
     // Process a part of the candidates
     while (nTests < nTestsAtOnce && pindexPrev == pindexBest)
     {
-        if (!lpsieve->GetNextCandidateMultiplier(nTriedMultiplier, nCandidateType))
+        unsigned int nTriedMultiplier = 0;
+        if (!sieve.GetNextCandidateMultiplier(nTriedMultiplier, nCandidateType))
         {
             // power tests completed for the sieve
             //if (fDebug && GetBoolArg("-printmining"))
                 //printf("MineProbablePrimeChain() : %u tests (%u primes) in %uus\n", nTests, nPrimesHit, (unsigned int) (GetTimeMicros() - nStart));
-            psieve.reset();
             fNewBlock = true; // notify caller to change nonce
             return false;
         }
         nTests++;
         mpzChainOrigin = mpzHashMultiplier * nTriedMultiplier;
-        nChainLength = 0;
         bool fChainFound = ProbablePrimeChainTestFast(mpzChainOrigin, testParams);
         nProbableChainLength = nChainLength;
         unsigned int nChainPrimeLength = TargetGetLength(nChainLength);
@@ -876,6 +831,7 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             vChainsFound[nChainPrimeLength - 1]++;
         }
 
+        // Check if a chain was found
         if (fChainFound)
         {
             mpz_class mpzPrimeChainMultiplier = mpzFixedMultiplier * nTriedMultiplier;
