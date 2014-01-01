@@ -4856,7 +4856,7 @@ void static BitcoinMiner(CWallet *pwallet)
                 double dRoundBlockExpected = dRoundChainExpected;
                 for (unsigned int n = nRequestedLength; n < nTargetLength; n++)
                 {
-                    double dPrimeProbability = EstimateCandidatePrimeProbability(nPrimorialMultiplier, n);
+                    double dPrimeProbability = EstimateNormalPrimeProbability(nPrimorialMultiplier, n);
                     dTimeExpected /= dPrimeProbability;
                     dRoundBlockExpected *= dPrimeProbability;
                 }
