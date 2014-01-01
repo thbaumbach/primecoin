@@ -75,19 +75,19 @@ void InitPrimeMiner()
 
 void PrintMinerStatistics()
 {
-    printf("========================================================================\n"
-        "Miner statistics\n"
-        "========================================================================\n");
+    printf("========================================================================\n");
+    printf("Miner statistics\n");
+    printf("========================================================================\n");
 
     boost::timer::cpu_times const elapsed_times(minerTimer.elapsed());
     int64 nRunningTime = elapsed_times.wall;
     double dRunningHours = (double)nRunningTime / 3600000000000.0;
     int64 nCPUTime = elapsed_times.system + elapsed_times.user;
     double dCPUHours = (double)nCPUTime / 3600000000000.0;
-    printf("\nRunning time: %.4f hours\n", dRunningHours);
+    printf("Running time: %.4f hours", dRunningHours);
     printf("CPU time: %.4f hours\n", dCPUHours);
 
-    printf("\nTests: %"PRI64u"\n", (long long unsigned) nTotalTests);
+    printf("Tests: %"PRI64u"\n", (long long unsigned) nTotalTests);
     printf("Blocks found: %u\n", nTotalBlocksFound);
 
     // Find the last non-zero chain count
@@ -101,11 +101,12 @@ void PrintMinerStatistics()
         }
     }
 
-    printf("\nChain statistics\n");
+    printf("\n");
+    printf("Chain statistics\n");
     for (unsigned int i = 0; i < nMaxPrintLength; i++)
         printf("%u-chains: %"PRI64u"\n", i + 1, (long long unsigned) vTotalChainsFound[i]);
 
-    printf("\n========================================================================\n");
+    printf("========================================================================\n");
 
     // Reset statistics
     nHPSTimerStart = 0;
