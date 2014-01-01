@@ -4571,9 +4571,7 @@ void static BitcoinMiner(CWallet *pwallet)
     unsigned int nExtraNonce = 0;
 
     unsigned int nPrimorialMultiplier = nPrimorialHashFactor;
-    double dTimeExpected = 0;   // time expected to prime chain (micro-second)
     int64 nSieveGenTime = 0; // how many milliseconds sieve generation took
-    bool fIncrementPrimorial = true; // increase or decrease primorial factor
     int nAdjustPrimorial = 1; // increase or decrease primorial factor
     static bool fStatsPrinted = false;
     const unsigned int nRoundSamples = 40; // how many rounds to sample before adjusting primorial
@@ -4582,6 +4580,14 @@ void static BitcoinMiner(CWallet *pwallet)
     unsigned int nRoundNum = 0;
     double dAverageBlockExpectedPrev = 0.0;
     unsigned int nPrimorialMultiplierPrev = nPrimorialMultiplier;
+
+    // Check if a fixed primorial was requested
+    unsigned int nFixedPrimorial = (unsigned int)GetArg("-primorial", 0);
+    if (nFixedPrimorial > 0)
+    {
+        nFixedPrimorial = std::max(nFixedPrimorial, nPrimorialHashFactor);
+        nPrimorialMultiplier = nFixedPrimorial;
+    }
 
     if (!fTimerStarted)
     {
@@ -4789,13 +4795,12 @@ void static BitcoinMiner(CWallet *pwallet)
             {
                 // Primecoin: a sieve+primality round completes
                 // Primecoin: estimate time to block
-                const double dTimeExpectedPrev = dTimeExpected;
                 unsigned int nCalcRoundTests = max(1u, nRoundTests);
                 // Make sure the estimated time is very high if only 0 primes were found
                 if (nRoundPrimesHit == 0)
                     nCalcRoundTests *= 1000;
                 int64 nRoundTime = (GetTimeMicros() - nPrimeTimerStart); 
-                dTimeExpected = (double) nRoundTime / nCalcRoundTests;
+                double dTimeExpected = (double) nRoundTime / nCalcRoundTests;
                 double dRoundChainExpected = (double) nRoundTests;
                 unsigned int nTargetLength = TargetGetLength(pblock->nBits);
                 unsigned int nRequestedLength = nTargetLength;
@@ -4833,7 +4838,8 @@ void static BitcoinMiner(CWallet *pwallet)
                 {
                     // Calculate average expected blocks per time
                     double dAverageBlockExpected = dSumBlockExpected / ((double) nSumRoundTime / 1000000.0);
-                    printf("PrimecoinMiner() : nPrimorialMultiplier = %u, dAverageBlockExpected = %3.14f\n", nPrimorialMultiplier, dAverageBlockExpected); // debugging
+                    if (fDebug && GetBoolArg("-printprimorial"))
+                        printf("PrimecoinMiner() : round primorial = %u, average block/s = %3.14f\n", nPrimorialMultiplier, dAverageBlockExpected);
                     // Compare to previous value
                     if (dAverageBlockExpected > dAverageBlockExpectedPrev)
                         nAdjustPrimorial = (nPrimorialMultiplier > nPrimorialMultiplierPrev) ? 1 : -1;
@@ -4891,7 +4897,7 @@ void static BitcoinMiner(CWallet *pwallet)
                 nRoundPrimesHit = 0;
 
                 // Primecoin: dynamic adjustment of primorial multiplier
-                if (nAdjustPrimorial != 0) {
+                if (nFixedPrimorial == 0 && nAdjustPrimorial != 0) {
                     if (nAdjustPrimorial > 0)
                     {
                         if (!PrimeTableGetNextPrime(nPrimorialMultiplier))
