@@ -4574,7 +4574,14 @@ void static BitcoinMiner(CWallet *pwallet)
     double dTimeExpected = 0;   // time expected to prime chain (micro-second)
     int64 nSieveGenTime = 0; // how many milliseconds sieve generation took
     bool fIncrementPrimorial = true; // increase or decrease primorial factor
+    int nAdjustPrimorial = 1; // increase or decrease primorial factor
     static bool fStatsPrinted = false;
+    const unsigned int nRoundSamples = 40; // how many rounds to sample before adjusting primorial
+    double dSumBlockExpected = 0.0;
+    int64 nSumRoundTime = 0;
+    unsigned int nRoundNum = 0;
+    double dAverageBlockExpectedPrev = 0.0;
+    unsigned int nPrimorialMultiplierPrev = nPrimorialMultiplier;
 
     if (!fTimerStarted)
     {
@@ -4818,6 +4825,27 @@ void static BitcoinMiner(CWallet *pwallet)
                 dRoundBlockExpected *= dDifficultyFactor;
                 dTimeExpected /= dDifficultyFactor;
                 dBlockExpected += dRoundBlockExpected;
+                // Calculate the sum of expected blocks and time
+                dSumBlockExpected += dRoundBlockExpected;
+                nSumRoundTime += nRoundTime;
+                nRoundNum++;
+                if (nRoundNum >= nRoundSamples)
+                {
+                    // Calculate average expected blocks per time
+                    double dAverageBlockExpected = dSumBlockExpected / ((double) nSumRoundTime / 1000000.0);
+                    printf("PrimecoinMiner() : nPrimorialMultiplier = %u, dAverageBlockExpected = %3.14f\n", nPrimorialMultiplier, dAverageBlockExpected); // debugging
+                    // Compare to previous value
+                    if (dAverageBlockExpected > dAverageBlockExpectedPrev)
+                        nAdjustPrimorial = (nPrimorialMultiplier > nPrimorialMultiplierPrev) ? 1 : -1;
+                    else
+                        nAdjustPrimorial = (nPrimorialMultiplier > nPrimorialMultiplierPrev) ? -1 : 1;
+                    // Store the new value and reset
+                    dAverageBlockExpectedPrev = dAverageBlockExpected;
+                    nPrimorialMultiplierPrev = nPrimorialMultiplier;
+                    dSumBlockExpected = 0.0;
+                    nSumRoundTime = 0;
+                    nRoundNum = 0;
+                }
                 if (fDebug && GetBoolArg("-printmining"))
                 {
                     double dPrimeProbabilityBegin = EstimateCandidatePrimeProbability(nPrimorialMultiplier, 0);
@@ -4853,30 +4881,30 @@ void static BitcoinMiner(CWallet *pwallet)
                 if (pblock->nNonce >= 0xffff0000)
                     break;
 
-                // Primecoin: reset sieve+primality round timer
-                nPrimeTimerStart = GetTimeMicros();
-                if (dTimeExpected > dTimeExpectedPrev)
-                    fIncrementPrimorial = !fIncrementPrimorial;
-
                 // Primecoin: primorial always needs to be incremented if only 0 primes were found
                 if (nRoundPrimesHit == 0)
-                    fIncrementPrimorial = true;
+                    nAdjustPrimorial = 1;
 
+                // Primecoin: reset sieve+primality round timer
+                nPrimeTimerStart = GetTimeMicros();
                 nRoundTests = 0;
                 nRoundPrimesHit = 0;
 
                 // Primecoin: dynamic adjustment of primorial multiplier
-                if (fIncrementPrimorial)
-                {
-                    if (!PrimeTableGetNextPrime(nPrimorialMultiplier))
-                        error("PrimecoinMiner() : primorial increment overflow");
+                if (nAdjustPrimorial != 0) {
+                    if (nAdjustPrimorial > 0)
+                    {
+                        if (!PrimeTableGetNextPrime(nPrimorialMultiplier))
+                            error("PrimecoinMiner() : primorial increment overflow");
+                    }
+                    else if (nPrimorialMultiplier > nPrimorialHashFactor)
+                    {
+                        if (!PrimeTableGetPreviousPrime(nPrimorialMultiplier))
+                            error("PrimecoinMiner() : primorial decrement overflow");
+                    }
+                    Primorial(nPrimorialMultiplier, mpzPrimorial);
+                    nAdjustPrimorial = 0;
                 }
-                else if (nPrimorialMultiplier > nPrimorialHashFactor)
-                {
-                    if (!PrimeTableGetPreviousPrime(nPrimorialMultiplier))
-                        error("PrimecoinMiner() : primorial decrement overflow");
-                }
-                Primorial(nPrimorialMultiplier, mpzPrimorial);
             }
         }
 
