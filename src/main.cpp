@@ -4872,13 +4872,13 @@ void static BitcoinMiner(CWallet *pwallet)
                 {
                     // Calculate average expected blocks per time
                     double dAverageBlockExpected = dSumBlockExpected / ((double) nSumRoundTime / 1000000.0);
-                    if (fDebug && GetBoolArg("-printprimorial"))
-                        printf("PrimecoinMiner() : Rounds num=%u primorial=%u block/s=%3.14f\n", nRoundNum, nPrimorialMultiplier, dAverageBlockExpected);
                     // Compare to previous value
                     if (dAverageBlockExpected > dAverageBlockExpectedPrev)
-                        nAdjustPrimorial = (nPrimorialMultiplier > nPrimorialMultiplierPrev) ? 1 : -1;
+                        nAdjustPrimorial = (nPrimorialMultiplier >= nPrimorialMultiplierPrev) ? 1 : -1;
                     else
-                        nAdjustPrimorial = (nPrimorialMultiplier > nPrimorialMultiplierPrev) ? -1 : 1;
+                        nAdjustPrimorial = (nPrimorialMultiplier >= nPrimorialMultiplierPrev) ? -1 : 1;
+                    if (fDebug && GetBoolArg("-printprimorial"))
+                        printf("PrimecoinMiner() : Rounds total: num=%u primorial=%u block/s=%3.12f\n", nRoundNum, nPrimorialMultiplier, dAverageBlockExpected);
                     // Store the new value and reset
                     dAverageBlockExpectedPrev = dAverageBlockExpected;
                     nPrimorialMultiplierPrev = nPrimorialMultiplier;
