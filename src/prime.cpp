@@ -115,7 +115,11 @@ void PrintMinerStatistics()
 
 void PrintCompactStatistics(volatile unsigned int vFoundChainCounter[nMaxChainLength])
 {
-    std::string strOutput = strprintf("%s chainstats ", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
+    std::string strOutput;
+    if (fLogTimestamps)
+        strOutput = "chainstats ";
+    else
+        strOutput = strprintf("%s chainstats ", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
     for (unsigned int i = 0; i < nMaxChainLength; i++)
     {
         if (vFoundChainCounter[i])
