@@ -231,7 +231,6 @@ class CSieveOfEratosthenes
     static const unsigned int nWordBits = 8 * sizeof(sieve_word_t);
     unsigned int nCandidatesWords;
     unsigned int nCandidatesBytes;
-    unsigned int nCandidatesBytesPrev;
 
     unsigned int nPrimeSeq; // prime sequence number currently being processed
     unsigned int nCandidateCount; // cached total count of candidates
@@ -246,6 +245,10 @@ class CSieveOfEratosthenes
     unsigned int nL1CacheElements; // number of bits that can be stored in L1 cache
 
     CBlockIndex* pindexPrev;
+
+    // previous parameters
+    unsigned int nCandidatesBytesPrev;
+    unsigned int nSieveExtensionsPrev;
 
     bool fIsReady;
     bool fIsDepleted;
@@ -308,6 +311,7 @@ public:
         nCandidatesWords = 0;
         nCandidatesBytes = 0;
         nCandidatesBytesPrev = 0;
+        nSieveExtensionsPrev = 0;
         nPrimeSeq = 0;
         nCandidateCount = 0;
         nCandidateMultiplier = 0;
@@ -345,9 +349,10 @@ public:
         nCandidateActiveExtension = 0;
         nCandidatesWords = (nSieveSize + nWordBits - 1) / nWordBits;
         nCandidatesBytes = nCandidatesWords * sizeof(sieve_word_t);
-        if (nCandidatesBytes != nCandidatesBytesPrev)
+        if (nCandidatesBytes != nCandidatesBytesPrev || nSieveExtensions != nSieveExtensionsPrev)
         {
             nCandidatesBytesPrev = nCandidatesBytes;
+            nSieveExtensionsPrev = nSieveExtensions;
             freeArrays();
             vfCandidates = (sieve_word_t *)malloc(nCandidatesBytes);
             vfCompositeBiTwin = (sieve_word_t *)malloc(nCandidatesBytes);
