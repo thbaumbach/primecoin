@@ -84,7 +84,7 @@ void PrintMinerStatistics()
     double dRunningHours = (double)nRunningTime / 3600000000000.0;
     int64 nCPUTime = elapsed_times.system + elapsed_times.user;
     double dCPUHours = (double)nCPUTime / 3600000000000.0;
-    printf("Running time: %.4f hours", dRunningHours);
+    printf("Running time: %.4f hours\n", dRunningHours);
     printf("CPU time: %.4f hours\n", dCPUHours);
 
     printf("Tests: %"PRI64u"\n", (long long unsigned) nTotalTests);
