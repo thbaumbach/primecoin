@@ -770,8 +770,35 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
     return (nChainLength >= nBits);
 }
 
+// Perform Fermat test with trial division
+// Return values:
+//   true  - passes trial division test and Fermat test; probable prime
+//   false - failed either trial division or Fermat test; composite
+bool ProbablePrimalityTestWithTrialDivision(const mpz_class& mpzCandidate, unsigned int nTrialDivisionLimit, CPrimalityTestParams& testParams)
+{
+    unsigned int nDivisor = 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19 * 23;
+    unsigned int nDivisorPrimes = 9;
+
+    // Fast trial division for the first few primes
+    unsigned long nModulo = mpz_tdiv_ui(mpzCandidate.get_mpz_t(), nDivisor);
+    for (unsigned int i = 0; i < nDivisorPrimes; i++)
+    {
+        if (nModulo % vPrimes[i] == 0)
+            return false;
+    }
+
+    // Trial division
+    for (unsigned int i = nDivisorPrimes; i < nTrialDivisionLimit; i++)
+    {
+        if (mpz_divisible_ui_p(mpzCandidate.get_mpz_t(), vPrimes[i]))
+            return false;
+    }
+    unsigned int nLength = 0;
+    return (FermatProbablePrimalityTestFast(mpzCandidate, nLength, testParams, true));
+}
+
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, int64& nSieveGenTime, CBlockIndex* pindexPrev, unsigned int vChainsFound[nMaxChainLength], CSieveOfEratosthenes &sieve, CPrimalityTestParams &testParams)
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, int64& nSieveGenTime, CBlockIndex* pindexPrev, unsigned int vChainsFound[nMaxChainLength], CSieveOfEratosthenes& sieve, CPrimalityTestParams& testParams)
 {
     nProbableChainLength = 0;
     nTests = 0;
@@ -1172,7 +1199,7 @@ static const double dLogTwo = log(2.0);
 static const double dLogOneAndHalf = log(1.5);
 
 // Estimate the probability of primality for a number in a candidate chain
-double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum)
+double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum, unsigned int nMiningProtocol)
 {
     // h * q# / r# * s is prime with probability 1/log(h * q# / r# * s),
     //   (prime number theorem)
@@ -1194,8 +1221,11 @@ double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsi
     double dFixedMultiplier = 1.0;
     for (unsigned int i = 0; vPrimes[i] <= nPrimorialMultiplier; i++)
         dFixedMultiplier *= vPrimes[i];
-    for (unsigned int i = 0; vPrimes[i] <= nPrimorialHashFactor; i++)
-        dFixedMultiplier /= vPrimes[i];
+    if (nMiningProtocol < 2)
+    {
+        for (unsigned int i = 0; vPrimes[i] <= nPrimorialHashFactor; i++)
+            dFixedMultiplier /= vPrimes[i];
+    }
 
     double dExtendedSieveWeightedSum = 0.5 * nSieveSize;
     double dExtendedSieveCandidates = nSieveSize;
@@ -1210,14 +1240,17 @@ double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsi
 }
 
 // Esimate the prime probablity of numbers that haven't been sieved
-double EstimateNormalPrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum)
+double EstimateNormalPrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum, unsigned int nMiningProtocol)
 {
     const unsigned int nAverageCandidateMultiplier = nSieveSize / 2;
     double dFixedMultiplier = 1.0;
     for (unsigned int i = 0; vPrimes[i] <= nPrimorialMultiplier; i++)
         dFixedMultiplier *= vPrimes[i];
-    for (unsigned int i = 0; vPrimes[i] <= nPrimorialHashFactor; i++)
-        dFixedMultiplier /= vPrimes[i];
+    if (nMiningProtocol < 2)
+    {
+        for (unsigned int i = 0; vPrimes[i] <= nPrimorialHashFactor; i++)
+            dFixedMultiplier /= vPrimes[i];
+    }
 
     double dExtendedSieveWeightedSum = 0.5 * nSieveSize;
     double dExtendedSieveCandidates = nSieveSize;

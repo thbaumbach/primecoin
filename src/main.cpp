@@ -4593,6 +4593,7 @@ void static BitcoinMiner(CWallet *pwallet)
 {
     static CCriticalSection cs;
     static bool fTimerStarted = false;
+    static bool fStatsPrinted = false;
     printf("PrimecoinMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
     RenameThread("primecoin-miner");
@@ -4604,15 +4605,14 @@ void static BitcoinMiner(CWallet *pwallet)
     unsigned int nPrimorialMultiplier = nPrimorialHashFactor;
     int64 nSieveGenTime = 0; // how many milliseconds sieve generation took
     int nAdjustPrimorial = 1; // increase or decrease primorial factor
-    static bool fStatsPrinted = false;
     const unsigned int nRoundSamples = 40; // how many rounds to sample before adjusting primorial
-    double dSumBlockExpected = 0.0;
-    int64 nSumRoundTime = 0;
-    unsigned int nRoundNum = 0;
-    double dAverageBlockExpectedPrev = 0.0;
-    unsigned int nPrimorialMultiplierPrev = nPrimorialMultiplier;
+    double dSumBlockExpected = 0.0; // sum of expected blocks
+    int64 nSumRoundTime = 0; // sum of round times
+    unsigned int nRoundNum = 0; // number of rounds
+    double dAverageBlockExpectedPrev = 0.0; // previous average expected blocks per second
+    unsigned int nPrimorialMultiplierPrev = nPrimorialMultiplier; // previous primorial factor
 
-    // Check if a fixed primorial was requested
+    // Primecoin: Check if a fixed primorial was requested
     unsigned int nFixedPrimorial = (unsigned int)GetArg("-primorial", 0);
     if (nFixedPrimorial > 0)
     {
@@ -4620,7 +4620,10 @@ void static BitcoinMiner(CWallet *pwallet)
         nPrimorialMultiplier = nFixedPrimorial;
     }
 
-    // Allocate data structures for mining
+    // Primecoin: Allow choosing the mining protocol version
+    unsigned int nMiningProtocol = (unsigned int)GetArg("-miningprotocol", 1);
+
+    // Primecoin: Allocate data structures for mining
     CSieveOfEratosthenes sieve;
     CPrimalityTestParams testParams;
 
@@ -4679,26 +4682,27 @@ void static BitcoinMiner(CWallet *pwallet)
         // Primecoin: try to find hash divisible by primorial
         unsigned int nHashFactor = PrimorialFast(nPrimorialHashFactor);
 
-        // Based on mustyoshi's patch from https://bitcointalk.org/index.php?topic=251850.msg2689981#msg2689981
-        uint256 phash;
         mpz_class mpzHash;
         loop {
-            // Fast loop
+            pblock->nNonce++;
             if (pblock->nNonce >= 0xffff0000)
                 break;
 
             // Check that the hash meets the minimum
-            phash = pblock->GetHeaderHash();
-            if (phash < hashBlockHeaderLimit) {
-                pblock->nNonce++;
+            uint256 phash = pblock->GetHeaderHash();
+            if (phash < hashBlockHeaderLimit)
                 continue;
-            }
 
-            // Check that the hash is divisible by the fixed primorial
             mpz_set_uint256(mpzHash.get_mpz_t(), phash);
-            if (!mpz_divisible_ui_p(mpzHash.get_mpz_t(), nHashFactor)) {
-                pblock->nNonce++;
-                continue;
+            if (nMiningProtocol >= 2) {
+                // Primecoin: Mining protocol v0.2
+                // Try to find hash that is probable prime
+                if (!ProbablePrimalityTestWithTrialDivision(mpzHash, 1000, testParams))
+                    continue;
+            } else {
+                // Primecoin: Check that the hash is divisible by the fixed primorial
+                if (!mpz_divisible_ui_p(mpzHash.get_mpz_t(), nHashFactor))
+                    continue;
             }
 
             // Use the hash that passed the tests
@@ -4739,19 +4743,16 @@ void static BitcoinMiner(CWallet *pwallet)
                     vFoundChainCounter[i] = 0;
             }
 
-            // Primecoin: adjust round primorial so that the generated prime candidates meet the minimum
-            mpz_class mpzMultiplierMin = mpzPrimeMin * nHashFactor / mpzHash + 1;
-            while (mpzPrimorial < mpzMultiplierMin)
-            {
-                if (!PrimeTableGetNextPrime(nPrimorialMultiplier))
-                    error("PrimecoinMiner() : primorial minimum overflow");
-                Primorial(nPrimorialMultiplier, mpzPrimorial);
-            }
             mpz_class mpzFixedMultiplier;
-            if (mpzPrimorial > nHashFactor) {
-                mpzFixedMultiplier = mpzPrimorial / nHashFactor;
-            } else {
-                mpzFixedMultiplier = 1;
+            // Primecoin: Mining protocol v0.2
+            if (nMiningProtocol >= 2)
+                mpzFixedMultiplier = mpzPrimorial;
+            else
+            {
+                if (mpzPrimorial > nHashFactor)
+                    mpzFixedMultiplier = mpzPrimorial / nHashFactor;
+                else
+                    mpzFixedMultiplier = 1;
             }
 
             // Primecoin: mine for prime chain
@@ -4847,7 +4848,7 @@ void static BitcoinMiner(CWallet *pwallet)
                 // Calculate expected number of chains for requested length
                 for (unsigned int n = 0; n < nRequestedLength; n++)
                 {
-                    double dPrimeProbability = EstimateCandidatePrimeProbability(nPrimorialMultiplier, n);
+                    double dPrimeProbability = EstimateCandidatePrimeProbability(nPrimorialMultiplier, n, nMiningProtocol);
                     dTimeExpected /= dPrimeProbability;
                     dRoundChainExpected *= dPrimeProbability;
                 }
@@ -4856,13 +4857,13 @@ void static BitcoinMiner(CWallet *pwallet)
                 double dRoundBlockExpected = dRoundChainExpected;
                 for (unsigned int n = nRequestedLength; n < nTargetLength; n++)
                 {
-                    double dPrimeProbability = EstimateNormalPrimeProbability(nPrimorialMultiplier, n);
+                    double dPrimeProbability = EstimateNormalPrimeProbability(nPrimorialMultiplier, n, nMiningProtocol);
                     dTimeExpected /= dPrimeProbability;
                     dRoundBlockExpected *= dPrimeProbability;
                 }
                 // Calculate the effect of fractional difficulty
                 double dFractionalDiff = GetPrimeDifficulty(pblock->nBits) - nTargetLength;
-                double dExtraPrimeProbability = EstimateNormalPrimeProbability(nPrimorialMultiplier, nTargetLength);
+                double dExtraPrimeProbability = EstimateNormalPrimeProbability(nPrimorialMultiplier, nTargetLength, nMiningProtocol);
                 double dDifficultyFactor = ((1.0 - dFractionalDiff) * (1.0 - dExtraPrimeProbability) + dExtraPrimeProbability);
                 dRoundBlockExpected *= dDifficultyFactor;
                 dTimeExpected /= dDifficultyFactor;
@@ -4891,38 +4892,10 @@ void static BitcoinMiner(CWallet *pwallet)
                 }
                 if (fDebug && GetBoolArg("-printmining"))
                 {
-                    double dPrimeProbabilityBegin = EstimateCandidatePrimeProbability(nPrimorialMultiplier, 0);
-                    double dPrimeProbabilityEnd = EstimateCandidatePrimeProbability(nPrimorialMultiplier, nTargetLength - 1);
+                    double dPrimeProbabilityBegin = EstimateCandidatePrimeProbability(nPrimorialMultiplier, 0, nMiningProtocol);
+                    double dPrimeProbabilityEnd = EstimateCandidatePrimeProbability(nPrimorialMultiplier, nTargetLength - 1, nMiningProtocol);
                     printf("PrimecoinMiner() : Round primorial=%u tests=%u primes=%u time=%uus pprob=%1.6f pprob2=%1.6f pprobextra=%1.6f tochain=%6.3fd expect=%3.12f expectblock=%3.12f\n", nPrimorialMultiplier, nRoundTests, nRoundPrimesHit, (unsigned int) nRoundTime, dPrimeProbabilityBegin, dPrimeProbabilityEnd, dExtraPrimeProbability, ((dTimeExpected/1000000.0))/86400.0, dRoundChainExpected, dRoundBlockExpected);
                 }
-
-                // Primecoin: update time and nonce
-                pblock->nTime = max(pblock->nTime, (unsigned int) GetAdjustedTime());
-                pblock->nNonce++;
-                loop {
-                    // Fast loop
-                    if (pblock->nNonce >= 0xffff0000)
-                        break;
-
-                    // Check that the hash meets the minimum
-                    phash = pblock->GetHeaderHash();
-                    if (phash < hashBlockHeaderLimit) {
-                        pblock->nNonce++;
-                        continue;
-                    }
-
-                    // Check that the hash is divisible by the fixed primorial
-                    mpz_set_uint256(mpzHash.get_mpz_t(), phash);
-                    if (!mpz_divisible_ui_p(mpzHash.get_mpz_t(), nHashFactor)) {
-                        pblock->nNonce++;
-                        continue;
-                    }
-
-                    // Use the hash that passed the tests
-                    break;
-                }
-                if (pblock->nNonce >= 0xffff0000)
-                    break;
 
                 // Primecoin: primorial always needs to be incremented if only 0 primes were found
                 if (nRoundPrimesHit == 0)
@@ -4932,6 +4905,36 @@ void static BitcoinMiner(CWallet *pwallet)
                 nPrimeTimerStart = GetTimeMicros();
                 nRoundTests = 0;
                 nRoundPrimesHit = 0;
+
+                // Primecoin: update time and nonce
+                pblock->nTime = max(pblock->nTime, (unsigned int) GetAdjustedTime());
+                loop {
+                    pblock->nNonce++;
+                    if (pblock->nNonce >= 0xffff0000)
+                        break;
+
+                    // Check that the hash meets the minimum
+                    uint256 phash = pblock->GetHeaderHash();
+                    if (phash < hashBlockHeaderLimit)
+                        continue;
+
+                    mpz_set_uint256(mpzHash.get_mpz_t(), phash);
+                    if (nMiningProtocol >= 2) {
+                        // Primecoin: Mining protocol v0.2
+                        // Try to find hash that is probable prime
+                        if (!ProbablePrimalityTestWithTrialDivision(mpzHash, 1000, testParams))
+                            continue;
+                    } else {
+                        // Primecoin: Check that the hash is divisible by the fixed primorial
+                        if (!mpz_divisible_ui_p(mpzHash.get_mpz_t(), nHashFactor))
+                            continue;
+                    }
+
+                    // Use the hash that passed the tests
+                    break;
+                }
+                if (pblock->nNonce >= 0xffff0000)
+                    break;
 
                 // Primecoin: dynamic adjustment of primorial multiplier
                 if (nFixedPrimorial == 0 && nAdjustPrimorial != 0) {
