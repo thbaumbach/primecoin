@@ -221,12 +221,18 @@ class CSieveOfEratosthenes
     sieve_word_t *vfCompositeBiTwin;
     sieve_word_t *vfCompositeCunningham1;
     sieve_word_t *vfCompositeCunningham2;
+    sieve_word_t *vfCompositeLayerCC1;
+    sieve_word_t *vfCompositeLayerCC2;
 
     // extended sets
     sieve_word_t *vfExtendedCandidates;
     sieve_word_t *vfExtendedCompositeBiTwin;
     sieve_word_t *vfExtendedCompositeCunningham1;
     sieve_word_t *vfExtendedCompositeCunningham2;
+
+    // divisible multipliers
+    unsigned int *vCunningham1Multipliers;
+    unsigned int *vCunningham2Multipliers;
 
     static const unsigned int nWordBits = 8 * sizeof(sieve_word_t);
     unsigned int nCandidatesWords;
@@ -249,6 +255,7 @@ class CSieveOfEratosthenes
     // previous parameters
     unsigned int nCandidatesBytesPrev;
     unsigned int nSieveExtensionsPrev;
+    unsigned int nMultiplierBytesPrev;
 
     bool fIsReady;
     bool fIsDepleted;
@@ -273,6 +280,10 @@ class CSieveOfEratosthenes
             free(vfCompositeCunningham1);
         if (vfCompositeCunningham2)
             free(vfCompositeCunningham2);
+        if (vfCompositeLayerCC1)
+            free(vfCompositeLayerCC1);
+        if (vfCompositeLayerCC2)
+            free(vfCompositeLayerCC2);
         if (vfExtendedCandidates)
             free(vfExtendedCandidates);
         if (vfExtendedCompositeBiTwin)
@@ -281,10 +292,16 @@ class CSieveOfEratosthenes
             free(vfExtendedCompositeCunningham1);
         if (vfExtendedCompositeCunningham2)
             free(vfExtendedCompositeCunningham2);
+        if (vCunningham1Multipliers)
+            free(vCunningham1Multipliers);
+        if (vCunningham2Multipliers)
+            free(vCunningham2Multipliers);
         vfCandidates = NULL;
         vfCompositeBiTwin = NULL;
         vfCompositeCunningham1 = NULL;
         vfCompositeCunningham2 = NULL;
+        vfCompositeLayerCC1 = NULL;
+        vfCompositeLayerCC2 = NULL;
         vfExtendedCandidates = NULL;
         vfExtendedCompositeBiTwin = NULL;
         vfExtendedCompositeCunningham1 = NULL;
@@ -304,14 +321,19 @@ public:
         vfCompositeBiTwin = NULL;
         vfCompositeCunningham1 = NULL;
         vfCompositeCunningham2 = NULL;
+        vfCompositeLayerCC1 = NULL;
+        vfCompositeLayerCC2 = NULL;
         vfExtendedCandidates = NULL;
         vfExtendedCompositeBiTwin = NULL;
         vfExtendedCompositeCunningham1 = NULL;
         vfExtendedCompositeCunningham2 = NULL;
+        vCunningham1Multipliers = NULL;
+        vCunningham2Multipliers = NULL;
         nCandidatesWords = 0;
         nCandidatesBytes = 0;
         nCandidatesBytesPrev = 0;
         nSieveExtensionsPrev = 0;
+        nMultiplierBytesPrev = 0;
         nPrimeSeq = 0;
         nCandidateCount = 0;
         nCandidateMultiplier = 0;
@@ -337,6 +359,7 @@ public:
         this->nSieveSize = nSieveSize;
         this->nSieveFilterPrimes = nSieveFilterPrimes;
         this->nSieveExtensions = nSieveExtensions;
+        nL1CacheElements = nL1CacheSize * 8;
         this->nBits = nBits;
         this->mpzHash = mpzHash;
         this->mpzFixedMultiplier = mpzFixedMultiplier;
@@ -349,29 +372,8 @@ public:
         nCandidateActiveExtension = 0;
         nCandidatesWords = (nSieveSize + nWordBits - 1) / nWordBits;
         nCandidatesBytes = nCandidatesWords * sizeof(sieve_word_t);
-        if (nCandidatesBytes != nCandidatesBytesPrev || nSieveExtensions != nSieveExtensionsPrev)
-        {
-            nCandidatesBytesPrev = nCandidatesBytes;
-            nSieveExtensionsPrev = nSieveExtensions;
-            freeArrays();
-            vfCandidates = (sieve_word_t *)malloc(nCandidatesBytes);
-            vfCompositeBiTwin = (sieve_word_t *)malloc(nCandidatesBytes);
-            vfCompositeCunningham1 = (sieve_word_t *)malloc(nCandidatesBytes);
-            vfCompositeCunningham2 = (sieve_word_t *)malloc(nCandidatesBytes);
-            vfExtendedCandidates = (sieve_word_t *)malloc(nSieveExtensions * nCandidatesBytes);
-            vfExtendedCompositeBiTwin = (sieve_word_t *)malloc(nSieveExtensions * nCandidatesBytes);
-            vfExtendedCompositeCunningham1 = (sieve_word_t *)malloc(nSieveExtensions * nCandidatesBytes);
-            vfExtendedCompositeCunningham2 = (sieve_word_t *)malloc(nSieveExtensions * nCandidatesBytes);
-        }
-        memset(vfCandidates, 0, nCandidatesBytes);
-        memset(vfCompositeBiTwin, 0, nCandidatesBytes);
-        memset(vfCompositeCunningham1, 0, nCandidatesBytes);
-        memset(vfCompositeCunningham2, 0, nCandidatesBytes);
-        memset(vfExtendedCandidates, 0, nSieveExtensions * nCandidatesBytes);
-        memset(vfExtendedCompositeBiTwin, 0, nSieveExtensions * nCandidatesBytes);
-        memset(vfExtendedCompositeCunningham1, 0, nSieveExtensions * nCandidatesBytes);
-        memset(vfExtendedCompositeCunningham2, 0, nSieveExtensions * nCandidatesBytes);
         nChainLength = TargetGetLength(nBits);
+
         // Override target length if requested
         if (nSieveTargetLength > 0)
             nChainLength = nSieveTargetLength;
@@ -380,7 +382,43 @@ public:
         // Filter only a certain number of prime factors
         // Most composites are still found
         nPrimes = nSieveFilterPrimes;
-        nL1CacheElements = nL1CacheSize * 8;
+        const unsigned int nMultiplierBytes = nPrimes * nSieveLayers * sizeof(unsigned int);
+
+        // Allocate arrays if parameters have changed
+        if (nCandidatesBytes != nCandidatesBytesPrev || nSieveExtensions != nSieveExtensionsPrev || nMultiplierBytes != nMultiplierBytesPrev)
+        {
+            nCandidatesBytesPrev = nCandidatesBytes;
+            nSieveExtensionsPrev = nSieveExtensions;
+            nMultiplierBytesPrev = nMultiplierBytes;
+            freeArrays();
+            vfCandidates = (sieve_word_t *)malloc(nCandidatesBytes);
+            vfCompositeBiTwin = (sieve_word_t *)malloc(nCandidatesBytes);
+            vfCompositeCunningham1 = (sieve_word_t *)malloc(nCandidatesBytes);
+            vfCompositeCunningham2 = (sieve_word_t *)malloc(nCandidatesBytes);
+            vfCompositeLayerCC1 = (sieve_word_t *)malloc(nCandidatesBytes);
+            vfCompositeLayerCC2 = (sieve_word_t *)malloc(nCandidatesBytes);
+            vfExtendedCandidates = (sieve_word_t *)malloc(nSieveExtensions * nCandidatesBytes);
+            vfExtendedCompositeBiTwin = (sieve_word_t *)malloc(nSieveExtensions * nCandidatesBytes);
+            vfExtendedCompositeCunningham1 = (sieve_word_t *)malloc(nSieveExtensions * nCandidatesBytes);
+            vfExtendedCompositeCunningham2 = (sieve_word_t *)malloc(nSieveExtensions * nCandidatesBytes);
+            vCunningham1Multipliers = (unsigned int *)malloc(nMultiplierBytes);
+            vCunningham2Multipliers = (unsigned int *)malloc(nMultiplierBytes);
+        }
+
+        // Initialize arrays
+        memset(vfCandidates, 0, nCandidatesBytes);
+        memset(vfCompositeBiTwin, 0, nCandidatesBytes);
+        memset(vfCompositeCunningham1, 0, nCandidatesBytes);
+        memset(vfCompositeCunningham2, 0, nCandidatesBytes);
+        memset(vfCompositeLayerCC1, 0, nCandidatesBytes);
+        memset(vfCompositeLayerCC2, 0, nCandidatesBytes);
+        memset(vfExtendedCandidates, 0, nSieveExtensions * nCandidatesBytes);
+        memset(vfExtendedCompositeBiTwin, 0, nSieveExtensions * nCandidatesBytes);
+        memset(vfExtendedCompositeCunningham1, 0, nSieveExtensions * nCandidatesBytes);
+        memset(vfExtendedCompositeCunningham2, 0, nSieveExtensions * nCandidatesBytes);
+        memset(vCunningham1Multipliers, 0xFF, nMultiplierBytes);
+        memset(vCunningham2Multipliers, 0xFF, nMultiplierBytes);
+
         fIsReady = true;
         fIsDepleted = false;
     }

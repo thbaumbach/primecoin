@@ -969,17 +969,6 @@ void CSieveOfEratosthenes::ProcessMultiplier(sieve_word_t *vfComposites, const u
 //   False - sieve already completed
 bool CSieveOfEratosthenes::Weave()
 {
-    const unsigned int nMultiplierBytes = nPrimes * nSieveLayers * sizeof(unsigned int);
-    unsigned int *vCunningham1Multipliers = (unsigned int *)malloc(nMultiplierBytes);
-    unsigned int *vCunningham2Multipliers = (unsigned int *)malloc(nMultiplierBytes);
-
-    memset(vCunningham1Multipliers, 0xFF, nMultiplierBytes);
-    memset(vCunningham2Multipliers, 0xFF, nMultiplierBytes);
-
-    // bitsets that can be combined to obtain the final bitset of candidates
-    sieve_word_t *vfCompositeLayerCC1 = (sieve_word_t *)malloc(nCandidatesBytes);
-    sieve_word_t *vfCompositeLayerCC2 = (sieve_word_t *)malloc(nCandidatesBytes);
-
     // Check whether fixed multiplier fits in an unsigned long
     bool fUseLongForFixedMultiplier = mpzFixedMultiplier < ULONG_MAX;
     unsigned long nFixedMultiplier;
@@ -1185,12 +1174,6 @@ bool CSieveOfEratosthenes::Weave()
 
     // The sieve has been partially weaved
     this->nPrimeSeq = nPrimes - 1;
-
-    free(vfCompositeLayerCC1);
-    free(vfCompositeLayerCC2);
-
-    free(vCunningham1Multipliers);
-    free(vCunningham2Multipliers);
 
     return false;
 }
