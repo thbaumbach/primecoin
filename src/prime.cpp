@@ -1247,7 +1247,7 @@ double EstimateNormalPrimeProbability(unsigned int nPrimorialMultiplier, unsigne
     // The primorial is implicitly filtering out the first few prime factors
     double dPrimorialBoost = 1.0;
     for (unsigned int i = 0; vPrimes[i] <= nPrimorialMultiplier; i++)
-        dPrimorialBoost *= vPrimes[i] / (vPrimes[i] - 1);
+        dPrimorialBoost *= (double)vPrimes[i] / (vPrimes[i] - 1);
 
     return (dPrimorialBoost / (255.0 * dLogTwo + dLogOneAndHalf + log(dFixedMultiplier) + log(nAverageCandidateMultiplier) + dLogTwo * nChainPrimeNum + log(dExtendedSieveAverageMultiplier)));
 }
