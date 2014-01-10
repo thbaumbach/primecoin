@@ -4811,9 +4811,9 @@ void static BitcoinMiner(CWallet *pwallet)
                     {
                         nLogTime = nMillisNow;
                         if (fLogTimestamps)
-                            printf("primemeter %9.0f prime/h %9.0f test/h %3.6f chain/d %3.6f block/d\n", dPrimesPerMinute * 60.0, dTestsPerMinute * 60.0, dChainsPerDay, dBlocksPerDay);
+                            printf("primemeter %9.0f prime/h %9.0f test/h %3.8f chain/d %3.8f block/d\n", dPrimesPerMinute * 60.0, dTestsPerMinute * 60.0, dChainsPerDay, dBlocksPerDay);
                         else
-                            printf("%s primemeter %9.0f prime/h %9.0f test/h %3.6f chain/d %3.6f block/d\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerMinute * 60.0, dTestsPerMinute * 60.0, dChainsPerDay, dBlocksPerDay);
+                            printf("%s primemeter %9.0f prime/h %9.0f test/h %3.8f chain/d %3.8f block/d\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", nLogTime / 1000).c_str(), dPrimesPerMinute * 60.0, dTestsPerMinute * 60.0, dChainsPerDay, dBlocksPerDay);
                         PrintCompactStatistics(vFoundChainCounter);
                     }
                 }
