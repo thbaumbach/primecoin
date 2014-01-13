@@ -4593,7 +4593,7 @@ void static BitcoinMiner(CWallet *pwallet)
 {
     static CCriticalSection cs;
     static bool fTimerStarted = false;
-    static bool fStatsPrinted = false;
+    bool fPrintStatsAtEnd = false;
     printf("PrimecoinMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
     RenameThread("primecoin-miner");
@@ -4633,6 +4633,9 @@ void static BitcoinMiner(CWallet *pwallet)
         {
             fTimerStarted = true;
             minerTimer.start();
+
+            // First thread will print the stats
+            fPrintStatsAtEnd = true;
         }
     }
 
@@ -4957,14 +4960,10 @@ void static BitcoinMiner(CWallet *pwallet)
     {
         printf("PrimecoinMiner terminated\n");
         // Print statistics
-        if (!fStatsPrinted)
+        if (fPrintStatsAtEnd)
         {
-            LOCK(cs);
-            if (!fStatsPrinted)
-            {
-                fStatsPrinted = true;
-                PrintMinerStatistics();
-            }
+            PrintMinerStatistics();
+            fTimerStarted = false;
         }
         throw;
     }
