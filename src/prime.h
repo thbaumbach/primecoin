@@ -477,18 +477,21 @@ public:
         sieve_word_t *vfActiveCandidates;
         sieve_word_t *vfActiveCompositeTWN;
         sieve_word_t *vfActiveCompositeCC1;
+        sieve_word_t *vfActiveCompositeCC2;
 
         if (fCandidateIsExtended)
         {
             vfActiveCandidates = vfExtendedCandidates + nCandidateActiveExtension * nCandidatesWords;
             vfActiveCompositeTWN = vfExtendedCompositeBiTwin + nCandidateActiveExtension * nCandidatesWords;
             vfActiveCompositeCC1 = vfExtendedCompositeCunningham1 + nCandidateActiveExtension * nCandidatesWords;
+            vfActiveCompositeCC2 = vfExtendedCompositeCunningham2 + nCandidateActiveExtension * nCandidatesWords;
         }
         else
         {
             vfActiveCandidates = vfCandidates;
             vfActiveCompositeTWN = vfCompositeBiTwin;
             vfActiveCompositeCC1 = vfCompositeCunningham1;
+            vfActiveCompositeCC2 = vfCompositeCunningham2;
         }
 
         // Acquire the current word from the bitmap
@@ -528,12 +531,14 @@ public:
                     vfActiveCandidates = vfExtendedCandidates + nCandidateActiveExtension * nCandidatesWords;
                     vfActiveCompositeTWN = vfExtendedCompositeBiTwin + nCandidateActiveExtension * nCandidatesWords;
                     vfActiveCompositeCC1 = vfExtendedCompositeCunningham1 + nCandidateActiveExtension * nCandidatesWords;
+                    vfActiveCompositeCC2 = vfExtendedCompositeCunningham2 + nCandidateActiveExtension * nCandidatesWords;
                 }
                 else
                 {
                     vfActiveCandidates = vfCandidates;
                     vfActiveCompositeTWN = vfCompositeBiTwin;
                     vfActiveCompositeCC1 = vfCompositeCunningham1;
+                    vfActiveCompositeCC2 = vfCompositeCunningham2;
                 }
             }
 
@@ -562,8 +567,10 @@ public:
                     nCandidateType = PRIME_CHAIN_BI_TWIN;
                 else if (~vfActiveCompositeCC1[GetWordNum(nCandidateIndex)] & GetBitMask(nCandidateIndex))
                     nCandidateType = PRIME_CHAIN_CUNNINGHAM1;
-                else
+                else if (~vfActiveCompositeCC2[GetWordNum(nCandidateIndex)] & GetBitMask(nCandidateIndex))
                     nCandidateType = PRIME_CHAIN_CUNNINGHAM2;
+                else
+                    nCandidateType = 0; // unknown
                 return true;
             }
         }

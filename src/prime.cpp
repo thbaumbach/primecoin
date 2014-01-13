@@ -749,7 +749,7 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
         mpzOriginPlusOne = mpzPrimeChainOrigin + 1;
         ProbableCunninghamChainTestFast(mpzOriginPlusOne, false, false, nChainLength, testParams);
     }
-    else
+    else if (nCandidateType == PRIME_CHAIN_BI_TWIN)
     {
         unsigned int nChainLengthCunningham1 = 0;
         unsigned int nChainLengthCunningham2 = 0;
@@ -795,6 +795,60 @@ bool ProbablePrimalityTestWithTrialDivision(const mpz_class& mpzCandidate, unsig
     }
     unsigned int nLength = 0;
     return (FermatProbablePrimalityTestFast(mpzCandidate, nLength, testParams, true));
+}
+
+static void SieveDebugChecks(unsigned int nBits, unsigned int nTriedMultiplier, unsigned int nCandidateType, mpz_class& mpzHash, mpz_class& mpzFixedMultiplier, mpz_class& mpzChainOrigin)
+{
+    // Debugging code to verify the sieve output
+    const unsigned int nTargetLength = TargetGetLength(nBits);
+    mpz_class mpzChainN;
+    mpz_class mpzChainNMod;
+    if (nCandidateType == PRIME_CHAIN_CUNNINGHAM1 || nCandidateType == PRIME_CHAIN_BI_TWIN)
+    {
+        unsigned int nCC1Length = nTargetLength;
+        if (nCandidateType == PRIME_CHAIN_BI_TWIN)
+            nCC1Length = (nTargetLength + 1) / 2;
+        for (unsigned int nChainPosition = 0; nChainPosition < nCC1Length; nChainPosition++)
+        {
+            mpzChainN = mpzChainOrigin << nChainPosition;
+            mpzChainN--;
+            for (unsigned int nPrimeSeq = 0; nPrimeSeq < nSieveFilterPrimes; nPrimeSeq++)
+            {
+                if (mpz_divisible_ui_p(mpzChainN.get_mpz_t(), vPrimes[nPrimeSeq]) > 0)
+                {
+                    std::string strHash = mpzHash.get_str();
+                    std::string strFixedMultiplier = mpzFixedMultiplier.get_str();
+                    printf("SIEVE BUG: %s * %s * %u * 2^%u - 1 is divisible by %u!\n", strHash.c_str(), strFixedMultiplier.c_str(), nTriedMultiplier, nChainPosition, vPrimes[nPrimeSeq]);
+                }
+            }
+        }
+    }
+    if (nCandidateType == PRIME_CHAIN_CUNNINGHAM2 || nCandidateType == PRIME_CHAIN_BI_TWIN)
+    {
+        unsigned int nCC2Length = nTargetLength;
+        if (nCandidateType == PRIME_CHAIN_BI_TWIN)
+            nCC2Length = nTargetLength / 2;
+        for (unsigned int nChainPosition = 0; nChainPosition < nCC2Length; nChainPosition++)
+        {
+            mpzChainN = mpzChainOrigin << nChainPosition;
+            mpzChainN++;
+            for (unsigned int nPrimeSeq = 0; nPrimeSeq < nSieveFilterPrimes; nPrimeSeq++)
+            {
+                if (mpz_divisible_ui_p(mpzChainN.get_mpz_t(), vPrimes[nPrimeSeq]) > 0)
+                {
+                    std::string strHash = mpzHash.get_str();
+                    std::string strFixedMultiplier = mpzFixedMultiplier.get_str();
+                    printf("SIEVE BUG: %s * %s * %u * 2^%u + 1 is divisible by %u!\n", strHash.c_str(), strFixedMultiplier.c_str(), nTriedMultiplier, nChainPosition, vPrimes[nPrimeSeq]);
+                }
+            }
+        }
+    }
+    if (nCandidateType == 0)
+    {
+        std::string strHash = mpzHash.get_str();
+        std::string strFixedMultiplier = mpzFixedMultiplier.get_str();
+        printf("SIEVE BUG: %s * %s * %u has unknown type!\n", strHash.c_str(), strFixedMultiplier.c_str(), nTriedMultiplier);
+    }
 }
 
 // Mine probable prime chain of form: n = h * p# +/- 1
@@ -854,6 +908,9 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
         mpzChainOrigin = mpzHashFixedMult * nTriedMultiplier;
         bool fChainFound = ProbablePrimeChainTestFast(mpzChainOrigin, testParams);
         unsigned int nChainPrimeLength = TargetGetLength(nChainLength);
+
+        if (fDebug && GetBoolArg("-debugsieve"))
+            SieveDebugChecks(nBits, nTriedMultiplier, nCandidateType, mpzHash, mpzFixedMultiplier, mpzChainOrigin);
 
         // Collect mining statistics
         if(nChainPrimeLength >= 1)
