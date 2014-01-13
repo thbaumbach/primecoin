@@ -4603,7 +4603,6 @@ void static BitcoinMiner(CWallet *pwallet)
     unsigned int nExtraNonce = 0;
 
     unsigned int nPrimorialMultiplier = nPrimorialHashFactor;
-    int64 nSieveGenTime = 0; // how many milliseconds sieve generation took
     int nAdjustPrimorial = 1; // increase or decrease primorial factor
     const unsigned int nRoundSamples = 40; // how many rounds to sample before adjusting primorial
     double dSumBlockExpected = 0.0; // sum of expected blocks
@@ -4712,6 +4711,7 @@ void static BitcoinMiner(CWallet *pwallet)
             continue;
         // Primecoin: primorial fixed multiplier
         mpz_class mpzPrimorial;
+        mpz_class mpzFixedMultiplier;
         unsigned int nRoundTests = 0;
         unsigned int nRoundPrimesHit = 0;
         int64 nPrimeTimerStart = GetTimeMicros();
@@ -4743,7 +4743,6 @@ void static BitcoinMiner(CWallet *pwallet)
                     vFoundChainCounter[i] = 0;
             }
 
-            mpz_class mpzFixedMultiplier;
             // Primecoin: Mining protocol v0.2
             if (nMiningProtocol >= 2)
                 mpzFixedMultiplier = mpzPrimorial;
@@ -4756,8 +4755,7 @@ void static BitcoinMiner(CWallet *pwallet)
             }
 
             // Primecoin: mine for prime chain
-            unsigned int nProbableChainLength;
-            if (MineProbablePrimeChain(*pblock, mpzFixedMultiplier, fNewBlock, nProbableChainLength, nTests, nPrimesHit, mpzHash, nSieveGenTime, pindexPrev, vChainsFound, sieve, testParams))
+            if (MineProbablePrimeChain(*pblock, mpzFixedMultiplier, fNewBlock, nTests, nPrimesHit, mpzHash, pindexPrev, vChainsFound, sieve, testParams))
             {
                 SetThreadPriority(THREAD_PRIORITY_NORMAL);
                 nTotalBlocksFound++;

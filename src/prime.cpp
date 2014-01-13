@@ -798,16 +798,17 @@ bool ProbablePrimalityTestWithTrialDivision(const mpz_class& mpzCandidate, unsig
 }
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, int64& nSieveGenTime, CBlockIndex* pindexPrev, unsigned int vChainsFound[nMaxChainLength], CSieveOfEratosthenes& sieve, CPrimalityTestParams& testParams)
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, CBlockIndex* pindexPrev, unsigned int vChainsFound[nMaxChainLength], CSieveOfEratosthenes& sieve, CPrimalityTestParams& testParams)
 {
-    nProbableChainLength = 0;
     nTests = 0;
     nPrimesHit = 0;
 
     // References to test parameters
-    unsigned int &nBits = testParams.nBits;
+    unsigned int& nBits = testParams.nBits;
     unsigned int& nChainLength = testParams.nChainLength;
     unsigned int& nCandidateType = testParams.nCandidateType;
+    mpz_class& mpzHashFixedMult = testParams.mpzHashFixedMult;
+    mpz_class& mpzChainOrigin = testParams.mpzChainOrigin;
     nBits = block.nBits;
 
     if (fNewBlock)
@@ -817,26 +818,25 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
     }
     fNewBlock = false;
 
-    int64 nStart; // microsecond timer
+    int64 nStart = 0; // microsecond timer
     if (!sieve.IsReady() || sieve.IsDepleted())
     {
         // Build sieve
-        nStart = GetTimeMicros();
+        if (fDebug && GetBoolArg("-printmining"))
+            nStart = GetTimeMicros();
         sieve.Reset(nSieveSize, nSieveFilterPrimes, nSieveExtensions, nL1CacheSize, nBits, mpzHash, mpzFixedMultiplier, pindexPrev);
         sieve.Weave();
-        nSieveGenTime = GetTimeMicros() - nStart;
         if (fDebug && GetBoolArg("-printmining"))
-            printf("MineProbablePrimeChain() : new sieve (%u/%u@%u%%) ready in %uus\n", sieve.GetCandidateCount(), nSieveSize, sieve.GetProgressPercentage(), (unsigned int) nSieveGenTime);
+            printf("MineProbablePrimeChain() : new sieve (%u/%u@%u%%) ready in %uus\n", sieve.GetCandidateCount(), nSieveSize, sieve.GetProgressPercentage(), (unsigned int) (GetTimeMicros() - nStart));
         return false; // sieve generation takes time so return now
     }
 
-    mpz_class mpzHashMultiplier = mpzHash * mpzFixedMultiplier;
-    mpz_class mpzChainOrigin;
-
-    nStart = GetTimeMicros();
+    if (fDebug && GetBoolArg("-printmining2"))
+        nStart = GetTimeMicros();
 
     // Number of candidates to be tested during a single call to this function
     const unsigned int nTestsAtOnce = 500;
+    mpzHashFixedMult = mpzHash * mpzFixedMultiplier;
 
     // Process a part of the candidates
     while (nTests < nTestsAtOnce && pindexPrev == pindexBest)
@@ -845,15 +845,14 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
         if (!sieve.GetNextCandidateMultiplier(nTriedMultiplier, nCandidateType))
         {
             // power tests completed for the sieve
-            //if (fDebug && GetBoolArg("-printmining"))
-                //printf("MineProbablePrimeChain() : %u tests (%u primes) in %uus\n", nTests, nPrimesHit, (unsigned int) (GetTimeMicros() - nStart));
+            if (fDebug && GetBoolArg("-printmining2"))
+                printf("MineProbablePrimeChain() : %u tests (%u primes) in %uus\n", nTests, nPrimesHit, (unsigned int) (GetTimeMicros() - nStart));
             fNewBlock = true; // notify caller to change nonce
             return false;
         }
         nTests++;
-        mpzChainOrigin = mpzHashMultiplier * nTriedMultiplier;
+        mpzChainOrigin = mpzHashFixedMult * nTriedMultiplier;
         bool fChainFound = ProbablePrimeChainTestFast(mpzChainOrigin, testParams);
-        nProbableChainLength = nChainLength;
         unsigned int nChainPrimeLength = TargetGetLength(nChainLength);
 
         // Collect mining statistics
@@ -877,8 +876,8 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
         }
     }
     
-    //if (fDebug && GetBoolArg("-printmining"))
-        //printf("MineProbablePrimeChain() : %u tests (%u primes) in %uus\n", nTests, nPrimesHit, (unsigned int) (GetTimeMicros() - nStart));
+    if (fDebug && GetBoolArg("-printmining2"))
+        printf("MineProbablePrimeChain() : %u tests (%u primes) in %uus\n", nTests, nPrimesHit, (unsigned int) (GetTimeMicros() - nStart));
     
     return false; // stop as new block arrived
 }
@@ -971,12 +970,7 @@ bool CSieveOfEratosthenes::Weave()
 {
     // Check whether fixed multiplier fits in an unsigned long
     bool fUseLongForFixedMultiplier = mpzFixedMultiplier < ULONG_MAX;
-    unsigned long nFixedMultiplier;
-    mpz_class mpzFixedFactor;
-    if (fUseLongForFixedMultiplier)
-        nFixedMultiplier = mpzFixedMultiplier.get_ui();
-    else
-        mpzFixedFactor = mpzHash * mpzFixedMultiplier;
+    unsigned long nFixedMultiplier = mpzFixedMultiplier.get_ui();
 
     unsigned int nCombinedEndSeq = 1;
     unsigned int nFixedFactorCombinedMod = 0;
@@ -1002,7 +996,7 @@ bool CSieveOfEratosthenes::Weave()
                 nFixedFactorCombinedMod = (uint64)nFixedFactorCombinedMod * (nFixedMultiplier % nPrimeCombined) % nPrimeCombined;
             }
             else
-                nFixedFactorCombinedMod = mpz_tdiv_ui(mpzFixedFactor.get_mpz_t(), nPrimeCombined);
+                nFixedFactorCombinedMod = mpz_tdiv_ui(mpzHashFixedMult.get_mpz_t(), nPrimeCombined);
         }
 
         unsigned int nFixedFactorMod = nFixedFactorCombinedMod % nPrime;

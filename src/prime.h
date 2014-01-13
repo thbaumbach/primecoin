@@ -133,7 +133,7 @@ class CSieveOfEratosthenes;
 class CPrimalityTestParams;
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, int64& nSieveGenTime, CBlockIndex* pindexPrev, unsigned int vChainsFound[nMaxChainLength], CSieveOfEratosthenes& sieve, CPrimalityTestParams& testParams);
+bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& fNewBlock, unsigned int& nTests, unsigned int& nPrimesHit, mpz_class& mpzHash, CBlockIndex* pindexPrev, unsigned int vChainsFound[nMaxChainLength], CSieveOfEratosthenes& sieve, CPrimalityTestParams& testParams);
 
 // Perform Fermat test with trial division
 // Return values:
@@ -161,6 +161,8 @@ public:
     mpz_t mpzRplusOne;
 
     // GMP C++ variables
+    mpz_class mpzHashFixedMult;
+    mpz_class mpzChainOrigin;
     mpz_class mpzOriginMinusOne;
     mpz_class mpzOriginPlusOne;
     mpz_class N;
@@ -215,6 +217,7 @@ class CSieveOfEratosthenes
     unsigned int nBits; // target of the prime chain to search for
     mpz_class mpzHash; // hash of the block header
     mpz_class mpzFixedMultiplier; // fixed round multiplier
+    mpz_class mpzHashFixedMult; // mpzHash * mpzFixedMultiplier
 
     // final set of candidates for probable primality checking
     sieve_word_t *vfCandidates;
@@ -317,6 +320,7 @@ public:
         nBits = 0;
         mpzHash = 0;
         mpzFixedMultiplier = 0;
+        mpzHashFixedMult = 0;
         vfCandidates = NULL;
         vfCompositeBiTwin = NULL;
         vfCompositeCunningham1 = NULL;
@@ -364,6 +368,7 @@ public:
         this->mpzHash = mpzHash;
         this->mpzFixedMultiplier = mpzFixedMultiplier;
         this->pindexPrev = pindexPrev;
+        mpzHashFixedMult = mpzHash * mpzFixedMultiplier;
         nPrimeSeq = 0;
         nCandidateCount = 0;
         nCandidateMultiplier = 0;
