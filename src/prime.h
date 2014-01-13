@@ -540,6 +540,9 @@ public:
                     vfActiveCompositeCC1 = vfCompositeCunningham1;
                     vfActiveCompositeCC2 = vfCompositeCunningham2;
                 }
+
+                // Update the current word
+                lBits = vfActiveCandidates[GetWordNum(nCandidateIndex)];
             }
 
             if (nCandidateIndex % nWordBits == 0)
