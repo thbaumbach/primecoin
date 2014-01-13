@@ -992,30 +992,32 @@ void CSieveOfEratosthenes::ProcessMultiplier(sieve_word_t *vfComposites, const u
 {
     // Wipe the part of the array first
     if (nMinMultiplier < nMaxMultiplier)
+    {
         memset(vfComposites + GetWordNum(nMinMultiplier), 0, (nMaxMultiplier - nMinMultiplier + nWordBits - 1) / nWordBits * sizeof(sieve_word_t));
 
-    for (unsigned int nPrimeSeq = 1; nPrimeSeq < nPrimes; nPrimeSeq++)
-    {
-        const unsigned int nPrime = vPrimes[nPrimeSeq];
-        unsigned int nVariableMultiplier = vMultipliers[nPrimeSeq * nSieveLayers + nLayerSeq];
-        if (nVariableMultiplier < nMinMultiplier)
-            nVariableMultiplier += (nMinMultiplier - nVariableMultiplier + nPrime - 1) / nPrime * nPrime;
+        for (unsigned int nPrimeSeq = 1; nPrimeSeq < nPrimes; nPrimeSeq++)
+        {
+            const unsigned int nPrime = vPrimes[nPrimeSeq];
+            unsigned int nVariableMultiplier = vMultipliers[nPrimeSeq * nSieveLayers + nLayerSeq];
+            if (nVariableMultiplier < nMinMultiplier)
+                nVariableMultiplier += (nMinMultiplier - nVariableMultiplier + nPrime - 1) / nPrime * nPrime;
 #ifdef USE_ROTATE
-        const unsigned int nRotateBits = nPrime % nWordBits;
-        sieve_word_t lBitMask = GetBitMask(nVariableMultiplier);
-        for (; nVariableMultiplier < nMaxMultiplier; nVariableMultiplier += nPrime)
-        {
-            vfComposites[GetWordNum(nVariableMultiplier)] |= lBitMask;
-            lBitMask = (lBitMask << nRotateBits) | (lBitMask >> (nWordBits - nRotateBits));
-        }
-        vMultipliers[nPrimeSeq * nSieveLayers + nLayerSeq] = nVariableMultiplier;
+            const unsigned int nRotateBits = nPrime % nWordBits;
+            sieve_word_t lBitMask = GetBitMask(nVariableMultiplier);
+            for (; nVariableMultiplier < nMaxMultiplier; nVariableMultiplier += nPrime)
+            {
+                vfComposites[GetWordNum(nVariableMultiplier)] |= lBitMask;
+                lBitMask = (lBitMask << nRotateBits) | (lBitMask >> (nWordBits - nRotateBits));
+            }
+            vMultipliers[nPrimeSeq * nSieveLayers + nLayerSeq] = nVariableMultiplier;
 #else
-        for (; nVariableMultiplier < nMaxMultiplier; nVariableMultiplier += nPrime)
-        {
-            vfComposites[GetWordNum(nVariableMultiplier)] |= GetBitMask(nVariableMultiplier);
-        }
-        vMultipliers[nPrimeSeq * nSieveLayers + nLayerSeq] = nVariableMultiplier;
+            for (; nVariableMultiplier < nMaxMultiplier; nVariableMultiplier += nPrime)
+            {
+                vfComposites[GetWordNum(nVariableMultiplier)] |= GetBitMask(nVariableMultiplier);
+            }
+            vMultipliers[nPrimeSeq * nSieveLayers + nLayerSeq] = nVariableMultiplier;
 #endif
+        }
     }
 }
 
