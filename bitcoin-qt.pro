@@ -420,7 +420,8 @@ LIBS += -lssl -lcrypto -ldb_cxx$$BDB_LIB_SUFFIX
 win32:LIBS += -lws2_32 -lshlwapi -lmswsock -lole32 -loleaut32 -luuid -lgdi32
 LIBS += -lboost_system$$BOOST_LIB_SUFFIX -lboost_filesystem$$BOOST_LIB_SUFFIX -lboost_program_options$$BOOST_LIB_SUFFIX -lboost_thread$$BOOST_THREAD_LIB_SUFFIX -lboost_chrono$$BOOST_LIB_SUFFIX -lboost_timer$$BOOST_LIB_SUFFIX
 # Link dynamically against GMP
-LIBS += -Wl,-Bdynamic -lgmp
+!macx:LIBS += -Wl,-Bdynamic -lgmp
+else:LIBS += -lgmp
 
 contains(RELEASE, 1) {
     !win32:!macx {
