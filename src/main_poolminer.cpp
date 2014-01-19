@@ -20,9 +20,9 @@
 
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 8
-#define VERSION_EXT "RC1"
+#define VERSION_EXT "RC2"
 
-#define MAX_THREADS 32
+#define MAX_THREADS 64
 
 // <START> be compatible to original code (not actually used!)
 #include "txdb.h"
@@ -256,23 +256,35 @@ public:
 
     boost::asio::io_service io_service;
     boost::asio::ip::tcp::resolver resolver(io_service); //resolve dns
-    boost::asio::ip::tcp::resolver::query query(GetArg("-poolip", "127.0.0.1"), GetArg("-poolport", "1337"));
     boost::asio::ip::tcp::resolver::iterator endpoint;
 	boost::asio::ip::tcp::resolver::iterator end;
 	boost::asio::ip::tcp::no_delay nd_option(true);
 	boost::asio::socket_base::keep_alive ka_option(true);
 
+	unsigned char poolnum = 0;
 	while (running) {
+		boost::asio::ip::tcp::resolver::query query(
+			(poolnum == 0) ? GetArg("-poolip", "127.0.0.1") :
+			(poolnum == 1 && GetArg("-poolip2", "").length() > 0) ? GetArg("-poolip2", "") :
+			(poolnum == 2 && GetArg("-poolip3", "").length() > 0) ? GetArg("-poolip3", "") :
+			GetArg("-poolip", "127.0.0.1")
+			,
+			(poolnum == 0) ? GetArg("-poolport", "1337") :
+			(poolnum == 1 && GetArg("-poolport2", "").length() > 0) ? GetArg("-poolport2", "") :
+			(poolnum == 2 && GetArg("-poolport3", "").length() > 0) ? GetArg("-poolport3", "") :
+			GetArg("-poolport", "1337")
+		);
+		poolnum = (poolnum + 1) % 3;
 		endpoint = resolver.resolve(query);
 		boost::scoped_ptr<boost::asio::ip::tcp::socket> socket;
 		boost::system::error_code error_socket = boost::asio::error::host_not_found;
 		while (error_socket && endpoint != end)
 		{
-		  //socket->close();
-		  socket.reset(new boost::asio::ip::tcp::socket(io_service));
-		  boost::asio::ip::tcp::endpoint tcp_ep = *endpoint++;
-		  socket->connect(tcp_ep, error_socket);
-		  std::cout << "connecting to " << tcp_ep << std::endl;
+			//socket->close();
+			socket.reset(new boost::asio::ip::tcp::socket(io_service));
+			boost::asio::ip::tcp::endpoint tcp_ep = *endpoint++;
+			std::cout << "connecting to " << tcp_ep << std::endl;
+			socket->connect(tcp_ep, error_socket);			
 		}
 		socket->set_option(nd_option);
 		socket->set_option(ka_option);
@@ -280,6 +292,8 @@ public:
 		if (error_socket) {
 			std::cout << error_socket << std::endl;
 			boost::this_thread::sleep(boost::posix_time::seconds(10));
+			if (GetArg("-exitondisc", 0) == 1)
+				running = false;
 			continue;
 		}
 
@@ -405,8 +419,12 @@ public:
 		}
 
 		socket_to_server = NULL; //TODO: lock/mutex
-		for (int i = 0; i < 50 && submitting_share < 1; ++i) //wait <5 seconds until reconnect (force reconnect when share is waiting to be submitted)
-			boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+		if (GetArg("-exitondisc", 0) == 1) {
+			running = false;
+		} else {
+			for (int i = 0; i < 50 && submitting_share < 1; ++i) //wait <5 seconds until reconnect (force reconnect when share is waiting to be submitted)
+				boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+		}
 	}
   }
 
