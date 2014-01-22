@@ -147,7 +147,9 @@ double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsi
 double EstimateNormalPrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum, unsigned int nMiningProtocol);
 
 #if defined(__i386__) || defined(_M_IX86) || defined(_X86_) || defined(__x86_64__) || defined(_M_X64)
-#define USE_ROTATE
+#    if !defined(__llvm__)
+#        define USE_ROTATE
+#    endif
 #endif
 
 typedef unsigned long sieve_word_t;
