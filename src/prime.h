@@ -152,7 +152,12 @@ double EstimateNormalPrimeProbability(unsigned int nPrimorialMultiplier, unsigne
 #    endif
 #endif
 
-typedef unsigned long sieve_word_t;
+// Check if the target platform is 64-bit
+#if defined(__x86_64__) || defined(_M_X64)
+typedef unsigned long long sieve_word_t;
+#else
+typedef unsigned int sieve_word_t;
+#endif
 
 class CPrimalityTestParams
 {
