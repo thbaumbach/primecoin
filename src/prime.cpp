@@ -87,7 +87,7 @@ void PrintMinerStatistics()
     printf("Running time: %.4f hours\n", dRunningHours);
     printf("CPU time: %.4f hours\n", dCPUHours);
 
-    printf("Tests: %"PRI64u"\n", (long long unsigned) nTotalTests);
+    printf("Tests: %"PRI64u"\n", nTotalTests);
     printf("Blocks found: %u\n", nTotalBlocksFound);
 
     // Find the last non-zero chain count
@@ -104,7 +104,7 @@ void PrintMinerStatistics()
     printf("\n");
     printf("Chain statistics\n");
     for (unsigned int i = 0; i < nMaxPrintLength; i++)
-        printf("%u-chains: %"PRI64u"\n", i + 1, (long long unsigned) vTotalChainsFound[i]);
+        printf("%u-chains: %"PRI64u"\n", i + 1, vTotalChainsFound[i]);
 
     printf("========================================================================\n");
 
