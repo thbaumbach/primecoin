@@ -9,7 +9,8 @@ CONFIG += no_include_pwd
 CONFIG += thread
 
 # avoid warnings about FD_SETSIZE being redefined
-win32:DEFINES += FD_SETSIZE=1024
+# Windows x64 needs BOOST_USE_WINDOWS_H and WIN32_LEAN_AND_MEAN
+win32:DEFINES += FD_SETSIZE=1024 BOOST_USE_WINDOWS_H WIN32_LEAN_AND_MEAN WINVER=0x500
 
 # for boost 1.37, add -mt to the boost libraries
 # use: qmake BOOST_LIB_SUFFIX=-mt
@@ -61,8 +62,10 @@ macx {
 QMAKE_CXXFLAGS *= -D_FORTIFY_SOURCE=2
 # for extra security on Windows: enable ASLR and DEP via GCC linker flags
 win32:QMAKE_LFLAGS *= -Wl,--dynamicbase -Wl,--nxcompat
-# on Windows: enable GCC large address aware linker flag
-win32:QMAKE_LFLAGS *= -Wl,--large-address-aware
+# on Windows x86: enable GCC large address aware linker flag
+!contains(QMAKE_HOST.arch, x86_64) {
+	win32:QMAKE_LFLAGS *= -Wl,--large-address-aware
+}
 
 # use: qmake "USE_QRCODE=1"
 # libqrencode (http://fukuchi.org/works/qrencode/index.en.html) must be installed for support
