@@ -1,77 +1,117 @@
-# -*- mode: Makefile; -*-
-# Copyright (c) 2011 Bitcoin Developers
-# Copyright (c) 2013 Primecoin Developers
+# Copyright (c) 2009-2010 Satoshi Nakamoto
+# Copyright (c) 2013 Primecoind developers
 # Distributed under conditional MIT/X11 software license,
-# see the accompanying file COPYING.
+# see the accompanying file COPYING
 
-# Mac OS X makefile for bitcoin
-# Originally by Laszlo Hanyecz (solar@heliacal.net)
+# :=0 --> UPnP support turned off by default at runtime
+# :=1 --> UPnP support turned on by default at runtime
+# :=- --> No UPnP support - miniupnp not required
+USE_UPNP:=-
 
-CXX=llvm-g++
-DEPSDIR=/opt/local
-
-INCLUDEPATHS= \
- -I"$(CURDIR)" \
- -I"$(CURDIR)"/obj \
- -I"$(DEPSDIR)/include" \
- -I"$(DEPSDIR)/include/db48"
-
-LIBPATHS= \
- -L"$(DEPSDIR)/lib" \
- -L"$(DEPSDIR)/lib/db48"
-
-USE_UPNP:=1
+# :=1 --> Enable IPv6 support
+# :=0 --> Disable IPv6 support
 USE_IPV6:=1
 
-LIBS= -dead_strip
+LINK:=$(CXX)
+
+DEFS = -DBOOST_SPIRIT_THREADSAFE -DMAC_OSX -DMSG_NOSIGNAL=0
+DEFS += $(addprefix -I,$(CURDIR) $(CURDIR)/obj $(BOOST_INCLUDE_PATH) $(BDB_INCLUDE_PATH) $(OPENSSL_INCLUDE_PATH))
+
+LIBS = $(addprefix -L,$(BOOST_LIB_PATH) $(BDB_LIB_PATH) $(OPENSSL_LIB_PATH))
+
+ifdef TOM
+	DEFS += -L/home/bc/ROOT/lib
+	LIBS += -I/home/bc/ROOT/include
+endif
 
 TESTDEFS = -DTEST_DATA_DIR=$(abspath test/data)
 
-ifdef STATIC
-# Build STATIC if you are redistributing the bitcoind binary
-TESTLIBS += \
- $(DEPSDIR)/lib/libboost_unit_test_framework-mt.a
+BOOST_LIB_SUFFIX=-mt
+# for boost 1.37, add -mt to the boost libraries
 LIBS += \
- $(DEPSDIR)/lib/db48/libdb_cxx-4.8.a \
- $(DEPSDIR)/lib/libboost_system-mt.a \
- $(DEPSDIR)/lib/libboost_filesystem-mt.a \
- $(DEPSDIR)/lib/libboost_program_options-mt.a \
- $(DEPSDIR)/lib/libboost_thread-mt.a \
- $(DEPSDIR)/lib/libboost_chrono-mt.a \
- $(DEPSDIR)/lib/libssl.a \
- $(DEPSDIR)/lib/libcrypto.a \
- -lz
-else
+   -l boost_system$(BOOST_LIB_SUFFIX) \
+   -l boost_filesystem$(BOOST_LIB_SUFFIX) \
+   -l boost_program_options$(BOOST_LIB_SUFFIX) \
+   -l boost_thread$(BOOST_LIB_SUFFIX) \
+   -l boost_chrono$(BOOST_LIB_SUFFIX) \
+   -l db_cxx$(BDB_LIB_SUFFIX) \
+   -l ssl \
+   -l crypto \
+   -l gmp \
+
 TESTLIBS += \
- -lboost_unit_test_framework-mt
-LIBS += \
- -ldb_cxx-4.8 \
- -lboost_system-mt \
- -lboost_filesystem-mt \
- -lboost_program_options-mt \
- -lboost_thread-mt \
- -lboost_chrono-mt \
- -lssl \
- -lcrypto \
- -lgmp \
- -lz
-TESTDEFS += -DBOOST_TEST_DYN_LINK
+   -l boost_unit_test_framework$(BOOST_LIB_SUFFIX)
+
+ifndef USE_UPNP
+	override USE_UPNP = -
+endif
+ifneq (${USE_UPNP}, -)
+	LIBS += -l miniupnpc
+	DEFS += -DUSE_UPNP=$(USE_UPNP)
 endif
 
-DEFS=-DMAC_OSX -DMSG_NOSIGNAL=0 -DBOOST_SPIRIT_THREADSAFE
-
-ifdef RELEASE
-# Compile for maximum compatibility and smallest size.
-# This requires that dependencies are compiled
-# the same way.
-CFLAGS = -mmacosx-version-min=10.5 -arch i386 -O3
-else
-DEBUGFLAGS = -g
+ifneq (${USE_IPV6}, -)
+	DEFS += -DUSE_IPV6=$(USE_IPV6)
 endif
 
-# ppc doesn't work because we don't support big-endian
-CFLAGS += -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter \
-    $(DEBUGFLAGS) $(DEFS) $(INCLUDEPATHS)
+ifeq ($(RELEASE), 1)
+	# Linux: Enable bundling libgmp.so with the binary
+	LIBS += -Wl,-rpath,\$$ORIGIN
+endif
+
+
+LIBS+= \
+   -lz \
+   -ldl \
+   -lpthread
+
+
+# Hardening
+# Make some classes of vulnerabilities unexploitable in case one is discovered.
+#
+    # This is a workaround for Ubuntu bug #691722, the default -fstack-protector causes
+    # -fstack-protector-all to be ignored unless -fno-stack-protector is used first.
+    # see: https://bugs.launchpad.net/ubuntu/+source/gcc-4.5/+bug/691722
+    HARDENING=-fno-stack-protector
+
+    # Stack Canaries
+    # Put numbers at the beginning of each stack frame and check that they are the same.
+    # If a stack buffer if overflowed, it writes over the canary number and then on return
+    # when that number is checked, it won't be the same and the program will exit with
+    # a "Stack smashing detected" error instead of being exploited.
+    HARDENING+=-fstack-protector-all -Wstack-protector
+
+    # Make some important things such as the global offset table read only as soon as
+    # the dynamic linker is finished building it. This will prevent overwriting of addresses
+    # which would later be jumped to.
+    # TODO: NOT SUPPORTED ON OSX
+    # LDHARDENING+=-Wl,-z,relro -Wl,-z,now
+
+    # Build position independent code to take advantage of Address Space Layout Randomization
+    # offered by some kernels.
+    # see doc/build-unix.txt for more information.
+    ifdef PIE
+        HARDENING+=-fPIE
+        LDHARDENING+=-pie
+    endif
+
+    # -D_FORTIFY_SOURCE=2 does some checking for potentially exploitable code patterns in
+    # the source such overflowing a statically defined buffer.
+    HARDENING+=-D_FORTIFY_SOURCE=2
+#
+
+
+#DEBUGFLAGS=-g3 -fno-inline -O0
+DEBUGFLAGS=
+
+# CXXFLAGS can be specified on the make command line, so we use xCXXFLAGS that only
+# adds some defaults in front. Unfortunately, CXXFLAGS=... $(CXXFLAGS) does not work.
+xCXXFLAGS=-O2 -pthread -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter \
+    $(DEBUGFLAGS) $(DEFS) $(HARDENING) $(CXXFLAGS)
+
+# LDFLAGS can be specified on the make command line, so we use xLDFLAGS that only
+# adds some defaults in front. Unfortunately, LDFLAGS=... $(LDFLAGS) does not work.
+xLDFLAGS=$(LDHARDENING) $(LDFLAGS)
 
 OBJS= \
     leveldb/libleveldb.a \
@@ -83,7 +123,6 @@ OBJS= \
     obj/crypter.o \
     obj/key.o \
     obj/db.o \
-    obj/init.o \
     obj/keystore.o \
     obj/main.o \
     obj/net.o \
@@ -108,23 +147,7 @@ OBJS= \
     obj/prime.o \
     obj/checkpointsync.o
 
-ifndef USE_UPNP
-	override USE_UPNP = -
-endif
-ifneq (${USE_UPNP}, -)
-	DEFS += -DUSE_UPNP=$(USE_UPNP)
-ifdef STATIC
-	LIBS += $(DEPSDIR)/lib/libminiupnpc.a
-else
-	LIBS += -lminiupnpc
-endif
-endif
-
-ifneq (${USE_IPV6}, -)
-	DEFS += -DUSE_IPV6=$(USE_IPV6)
-endif
-
-all: primecoind
+all: primeminer
 
 test check: test_primecoin FORCE
 	./test_primecoin
@@ -132,11 +155,12 @@ test check: test_primecoin FORCE
 #
 # LevelDB support
 #
+MAKEOVERRIDES =
 LIBS += $(CURDIR)/leveldb/libleveldb.a $(CURDIR)/leveldb/libmemenv.a
 DEFS += $(addprefix -I,$(CURDIR)/leveldb/include)
 DEFS += $(addprefix -I,$(CURDIR)/leveldb/helpers)
 leveldb/libleveldb.a:
-	@echo "Building LevelDB ..." && cd leveldb && $(MAKE) CC=$(CC) CXX=$(CXX) OPT="$(CFLAGS)" libleveldb.a libmemenv.a && cd ..
+	@echo "Building LevelDB ..." && cd leveldb && $(MAKE) CC=$(CC) CXX=$(CXX) OPT="$(xCXXFLAGS)" libleveldb.a libmemenv.a && cd ..
 
 # auto-generated dependencies:
 -include obj/*.P
@@ -148,26 +172,29 @@ version.cpp: obj/build.h
 DEFS += -DHAVE_BUILD_INFO
 
 obj/%.o: %.cpp
-	$(CXX) -c $(CFLAGS) -MMD -MF $(@:%.o=%.d) -o $@ $<
+	$(CXX) -c $(xCXXFLAGS) -MMD -MF $(@:%.o=%.d) -o $@ $<
 	@cp $(@:%.o=%.d) $(@:%.o=%.P); \
 	  sed -e 's/#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
 	      -e '/^$$/ d' -e 's/$$/ :/' < $(@:%.o=%.d) >> $(@:%.o=%.P); \
 	  rm -f $(@:%.o=%.d)
 
-primecoind: $(OBJS:obj/%=obj/%)
-	$(CXX) $(CFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS)
+primeminer: $(OBJS:obj/%=obj/%) obj/main_poolminer.o
+	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS) $(DEFS)
+
+primecoind: $(OBJS:obj/%=obj/%) obj/init.o
+	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS) $(DEFS)
 
 TESTOBJS := $(patsubst test/%.cpp,obj-test/%.o,$(wildcard test/*.cpp))
 
 obj-test/%.o: test/%.cpp
-	$(CXX) -c $(TESTDEFS) $(CFLAGS) -MMD -MF $(@:%.o=%.d) -o $@ $<
+	$(CXX) -c $(TESTDEFS) $(xCXXFLAGS) -MMD -MF $(@:%.o=%.d) -o $@ $<
 	@cp $(@:%.o=%.d) $(@:%.o=%.P); \
 	  sed -e 's/#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
 	      -e '/^$$/ d' -e 's/$$/ :/' < $(@:%.o=%.d) >> $(@:%.o=%.P); \
 	  rm -f $(@:%.o=%.d)
 
 test_primecoin: $(TESTOBJS) $(filter-out obj/init.o,$(OBJS:obj/%=obj/%))
-	$(CXX) $(CFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS) $(TESTLIBS)
+	$(LINK) $(xCXXFLAGS) -o $@ $(LIBPATHS) $^ $(TESTLIBS) $(xLDFLAGS) $(LIBS)
 
 clean:
 	-rm -f primecoind test_primecoin
