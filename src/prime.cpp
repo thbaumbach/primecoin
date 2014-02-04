@@ -58,6 +58,10 @@ std::vector<uint64> vTotalChainsFound;
 boost::timer::cpu_timer minerTimer;
 int nSieveTargetLength = -1;
 
+// Primecoin HP: Optional automatic donations with every block found
+CBitcoinAddress donationAddress;
+double dDonationPercentage;
+
 void ResetMinerStatistics()
 {
     nTotalTests = 0;
@@ -71,6 +75,24 @@ void InitPrimeMiner()
     nSieveTargetLength = std::min((int)GetArg("-sievetargetlength", nDefaultSieveTargetLength), (int)nMaxChainLength);
     if (nSieveTargetLength > 0)
         printf("InitPrimeMiner() : Setting sieve target length to %d\n", nSieveTargetLength);
+
+    // Primecoin HP: Optional automatic donations with every block found
+    std::string strDonationPercentage = GetArg("-donationpercentage", "0.0");
+    std::string strDonationAddress = GetArg("-donationaddress", !fTestNet ? strDefaultDonationAddress : strDefaultDonationAddressTestnet);
+    dDonationPercentage = atof(strDonationPercentage.c_str());
+    if (dDonationPercentage < dMinDonationPercentage)
+        dDonationPercentage = 0.0;
+    dDonationPercentage = std::min(dDonationPercentage, dMaxDonationPercentage);
+    donationAddress = CBitcoinAddress(strDonationAddress);
+    if (!donationAddress.IsValid())
+    {
+        dDonationPercentage = 0.0;
+        printf("InitPrimeMiner(): Donation address is invalid, disabling donations\n");
+    }
+    if (dDonationPercentage > 0.001)
+        printf("InitPrimeMiner(): Donating %2.2f%% of every block found to %s (thank you!)\n", dDonationPercentage, strDonationAddress.c_str());
+    else
+        printf("InitPrimeMiner(): Donations disabled\n");
 }
 
 void PrintMinerStatistics()

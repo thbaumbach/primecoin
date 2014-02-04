@@ -2225,9 +2225,9 @@ CBigNum CBlockIndex::GetBlockWork() const
     //   fractional multiplier = 1 / meeting target rate
     //       = (TransitionRatio * FractionalDiff) / (TransitionRatio - 1 + FractionalDiff)
     uint64 nFractionalDifficulty = TargetGetFractionalDifficulty(nBits);
-    CBigNum bnWork = 256;
-    for (unsigned int nCount = nTargetMinLength; nCount < TargetGetLength(nBits); nCount++)
-        bnWork *= nWorkTransitionRatio;
+    unsigned int nWorkExp = 8;
+    nWorkExp += nWorkTransitionRatioLog * TargetGetLength(nBits);
+    CBigNum bnWork = CBigNum(1) << nWorkExp;
     bnWork *= ((uint64) nWorkTransitionRatio) * nFractionalDifficulty;
     bnWork /= (((uint64) nWorkTransitionRatio - 1) * nFractionalDifficultyMin + nFractionalDifficulty);
     return bnWork;
@@ -4258,6 +4258,13 @@ CBlockTemplate* CreateNewBlock(CReserveKey& reservekey)
         return NULL;
     txNew.vout[0].scriptPubKey << pubkey << OP_CHECKSIG;
 
+    // Primecoin HP: Optional automatic donations with every block found
+    if (dDonationPercentage > 0.001)
+    {
+        txNew.vout.resize(2);
+        txNew.vout[1].scriptPubKey.SetDestination(donationAddress.Get());
+    }
+
     // Add our coinbase tx as first transaction
     pblock->vtx.push_back(txNew);
     pblocktemplate->vTxFees.push_back(-1); // updated at end
@@ -4464,7 +4471,19 @@ CBlockTemplate* CreateNewBlock(CReserveKey& reservekey)
         if (fDebug && GetBoolArg("-printmining"))
             printf("CreateNewBlock(): total size %"PRI64u"\n", nBlockSize);
         pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock);
-        pblock->vtx[0].vout[0].nValue = GetBlockValue(pblock->nBits, nFees);
+        int64 nBlockValue = GetBlockValue(pblock->nBits, nFees);
+        // Primecoin HP: Optional automatic donations with every block found
+        if (dDonationPercentage > 0.001)
+        {
+            int64 nDonationValue = nBlockValue * dDonationPercentage / 100.0;
+            // Make sure the transaction will be valid
+            nDonationValue = std::max(nDonationValue, MIN_TXOUT_AMOUNT);
+            nDonationValue = std::min(nDonationValue, nBlockValue - MIN_TXOUT_AMOUNT);
+            pblock->vtx[0].vout[0].nValue = nBlockValue - nDonationValue;
+            pblock->vtx[0].vout[1].nValue = nDonationValue;
+        }
+        else
+            pblock->vtx[0].vout[0].nValue = nBlockValue;
         pblocktemplate->vTxFees[0] = -nFees;
 
         // Fill in header
