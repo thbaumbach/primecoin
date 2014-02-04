@@ -233,7 +233,7 @@ unsigned int PrimorialFast(unsigned int p)
     }
     return nPrimorial;
 }
-
+/*
 // Compute first primorial number greater than or equal to pn
 void PrimorialAt(mpz_class& bn, mpz_class& mpzPrimorial)
 {
@@ -615,6 +615,7 @@ unsigned int EstimateWorkTransition(unsigned int nPrevWorkTransition, unsigned i
         nWorkTransition = ((nInterval - 1) * nWorkTransition + 2 * ((uint64) nBitsCeiling)) / (nInterval + 1);
     return nWorkTransition;
 }
+*/
 
 /********************/
 /* PRIMECOIN MINING */

@@ -5,8 +5,14 @@
 #ifndef PRIMECOIN_PRIME_H
 #define PRIMECOIN_PRIME_H
 
-#include "main.h"
-#include "base58.h"
+//<xolominer>
+//#include "main.h"
+#include "bignum.h" //in "main.h"
+//#include "base58.h"
+typedef int CBitcoinAddress;
+typedef int CBlockIndex;
+using std;
+//</xolominer>
 
 #include <gmp.h>
 #include <gmpxx.h>
@@ -86,7 +92,7 @@ void Primorial(unsigned int p, mpz_class& mpzPrimorial);
 // Fast 32-bit version assuming that p <= 23
 unsigned int PrimorialFast(unsigned int p);
 // Compute the first primorial number greater than or equal to bn
-void PrimorialAt(mpz_class& bn, mpz_class& mpzPrimorial);
+//void PrimorialAt(mpz_class& bn, mpz_class& mpzPrimorial);
 
 // Test probable prime chain for: bnPrimeChainOrigin
 // fFermatTest

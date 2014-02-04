@@ -1,6 +1,6 @@
 //===
 // by xolokram/TB
-// 2013
+// 2014 *yey*
 //===
 
 #include <iostream>
@@ -10,7 +10,7 @@
 #include <csignal>
 #include <map>
 
-#include "main_poolminer.hpp"
+#include "main_poolminer.h"
 
 #if defined(__GNUG__) && !defined(__MINGW32__) && !defined(__MINGW64__)
 #include <sys/syscall.h>
@@ -24,20 +24,17 @@
 #define VERSION_MINOR 9
 #define VERSION_EXT "RC1 <experimental>"
 
-#define MAX_THREADS 64
-
 /*********************************
 * global variables, structs and extern functions
 *********************************/
 
-int COLLISION_TABLE_BITS;
-bool use_avxsse4;
 size_t thread_num_max;
 static size_t fee_to_pay;
 static size_t miner_id;
-static boost::asio::ip::tcp::socket* socket_to_server;
-static boost::posix_time::ptime t_start;
-static std::map<int,unsigned long> statistics;
+static boost::asio::ip::tcp::socket* socket_to_server; //connection socket
+static boost::posix_time::ptime t_start; //for stats
+static unsigned long totalShareCount;
+static std::map<int,unsigned long> statistics; //^
 static bool running;
 static volatile int submitting_share;
 std::string pool_username;
@@ -106,7 +103,7 @@ public:
 		if (socket_to_server != NULL) {
 			blockHeader_t submitblock; //!
 			memcpy((unsigned char*)&submitblock, (unsigned char*)block, 88);
-			std::cout << "[WORKER] collision found: " << submitblock.birthdayA << " <-> " << submitblock.birthdayB << " #" << totalCollisionCount << " @ " << submitblock.nTime << " by " << thread_id << std::endl;
+			std::cout << "[WORKER] share found @ " << submitblock.nTime << " by " << thread_id << std::endl;
 			boost::system::error_code submit_error = boost::asio::error::host_not_found;
 			if (socket_to_server != NULL) boost::asio::write(*socket_to_server, boost::asio::buffer((unsigned char*)&submitblock, 88), boost::asio::transfer_all(), submit_error); //FaF
 			//if (submit_error)
@@ -128,19 +125,18 @@ protected:
 
 class CMasterThreadStub {
 public:
-  virtual void wait_for_master() = 0;
-  virtual boost::shared_mutex& get_working_lock() = 0;
+	virtual void wait_for_master() = 0;
+	virtual boost::shared_mutex& get_working_lock() = 0;
 };
 
 class CWorkerThread { // worker=miner
 public:
 
 	CWorkerThread(CMasterThreadStub *master, unsigned int id, CBlockProviderGW *bprovider)
-		: _collisionMap(NULL), _working_lock(NULL), _id(id), _master(master), _bprovider(bprovider), _thread(&CWorkerThread::run, this) {
-			_collisionMap = (uint32_t*)malloc(sizeof(uint32_t)*(1 << COLLISION_TABLE_BITS));
+		: _working_lock(NULL), _id(id), _master(master), _bprovider(bprovider), _thread(&CWorkerThread::run, this) {
 		}
-		
-	template<int COLLISION_TABLE_SIZE, int COLLISION_KEY_MASK, SHAMODE shamode>
+	
+	template<CPUMODE cpumode>
 	void mineloop() {
 		unsigned int blockcnt = 0;
 		blockHeader_t* thrblock = NULL;
@@ -155,34 +151,18 @@ public:
 				++blockcnt;
 			}
 			if (thrblock != NULL) {
-				protoshares_process_512<COLLISION_TABLE_SIZE,COLLISION_KEY_MASK,shamode>(thrblock, _collisionMap, _bprovider, _id);
+				//
+				//TODO: mine<cpumode>...
+				//
 			} else
 				boost::this_thread::sleep(boost::posix_time::seconds(1));
-		}
-	}
-	
-	template<SHAMODE shamode>
-	void mineloop_start() {
-		switch (COLLISION_TABLE_BITS) {
-			case 20: mineloop<(1<<20),(0xFFFFFFFF<<(32-(32-20))),shamode>(); break;
-			case 21: mineloop<(1<<21),(0xFFFFFFFF<<(32-(32-21))),shamode>(); break;
-			case 22: mineloop<(1<<22),(0xFFFFFFFF<<(32-(32-22))),shamode>(); break;
-			case 23: mineloop<(1<<23),(0xFFFFFFFF<<(32-(32-23))),shamode>(); break;
-			case 24: mineloop<(1<<24),(0xFFFFFFFF<<(32-(32-24))),shamode>(); break;
-			case 25: mineloop<(1<<25),(0xFFFFFFFF<<(32-(32-25))),shamode>(); break;
-			case 26: mineloop<(1<<26),(0xFFFFFFFF<<(32-(32-26))),shamode>(); break;
-			case 27: mineloop<(1<<27),(0xFFFFFFFF<<(32-(32-27))),shamode>(); break;
-			case 28: mineloop<(1<<28),(0xFFFFFFFF<<(32-(32-28))),shamode>(); break;
-			case 29: mineloop<(1<<29),(0xFFFFFFFF<<(32-(32-29))),shamode>(); break;
-			case 30: mineloop<(1<<30),(0xFFFFFFFF<<(32-(32-30))),shamode>(); break;
-			default: break;
 		}
 	}
 
 	void run() {
 		std::cout << "[WORKER" << _id << "] Hello, World!" << std::endl;
 		{
-			//set low priority
+			//<set_low_priority>
 #if defined(__GNUG__) && !defined(__MINGW32__) && !defined(__MINGW64__)
 			pid_t tid = (pid_t) syscall (SYS_gettid);
 			setpriority(PRIO_PROCESS, tid, 1);
@@ -191,14 +171,12 @@ public:
 			if (!SetThreadPriority(th, THREAD_PRIORITY_LOWEST))
 				std::cerr << "failed to set thread priority to low" << std::endl;
 #endif
+			//</set_low_priority>
 		}
 		_master->wait_for_master();
 		std::cout << "[WORKER" << _id << "] GoGoGo!" << std::endl;
 		boost::this_thread::sleep(boost::posix_time::seconds(1));
-		if (use_avxsse4)
-			mineloop_start<AVXSSE4>(); // <-- work loop
-		else
-			mineloop_start<SPHLIB>(); // ^
+		mineloop<SPHLIB>(); //TODO: optimize the code using SPH,SSE,AVX,etc.pp. #1/2
 		std::cout << "[WORKER" << _id << "] Bye Bye!" << std::endl;
 	}
 
@@ -207,206 +185,204 @@ public:
 	}
 
 protected:
-  uint32_t* _collisionMap;
-  boost::shared_lock<boost::shared_mutex> *_working_lock;
-  unsigned int _id;
-  CMasterThreadStub *_master;
-  CBlockProviderGW  *_bprovider;
-  boost::thread _thread;
+	boost::shared_lock<boost::shared_mutex> *_working_lock;
+	unsigned int _id;
+	CMasterThreadStub *_master;
+	CBlockProviderGW  *_bprovider;
+	boost::thread _thread;
 };
 
 class CMasterThread : public CMasterThreadStub {
 public:
 
-  CMasterThread(CBlockProviderGW *bprovider) : CMasterThreadStub(), _bprovider(bprovider) {}
+	CMasterThread(CBlockProviderGW *bprovider) : CMasterThreadStub(), _bprovider(bprovider) {}
 
-  void run() {
-
-	{
-		boost::unique_lock<boost::shared_mutex> lock(_mutex_master);
-		std::cout << "spawning " << thread_num_max << " worker thread(s)" << std::endl;
-
-		for (unsigned int i = 0; i < thread_num_max; ++i) {
-			CWorkerThread *worker = new CWorkerThread(this, i, _bprovider);
-			worker->work();
-		}
-	}
-
-    boost::asio::io_service io_service;
-    boost::asio::ip::tcp::resolver resolver(io_service); //resolve dns
-	boost::asio::ip::tcp::resolver::query query("ptsmine.beeeeer.org", "1337");
-	//boost::asio::ip::tcp::resolver::query query("127.0.0.1", "1337");
-    boost::asio::ip::tcp::resolver::iterator endpoint;
-	boost::asio::ip::tcp::resolver::iterator end;
-	boost::asio::ip::tcp::no_delay nd_option(true);
-	boost::asio::socket_base::keep_alive ka_option(true);
-
-	while (running) {
-		endpoint = resolver.resolve(query);
-		boost::scoped_ptr<boost::asio::ip::tcp::socket> socket;
-		boost::system::error_code error_socket = boost::asio::error::host_not_found;
-		while (error_socket && endpoint != end)
+	void run() {
 		{
-			//socket->close();
-			socket.reset(new boost::asio::ip::tcp::socket(io_service));
-			boost::asio::ip::tcp::endpoint tcp_ep = *endpoint++;
-			socket->connect(tcp_ep, error_socket);
-			std::cout << "connecting to " << tcp_ep << std::endl;
-		}
-		socket->set_option(nd_option);
-		socket->set_option(ka_option);
+			boost::unique_lock<boost::shared_mutex> lock(_mutex_master); //only in this scope
+			std::cout << "spawning " << thread_num_max << " worker thread(s)" << std::endl;
 
-		if (error_socket) {
-			std::cout << error_socket << std::endl;
-			boost::this_thread::sleep(boost::posix_time::seconds(10));
-			continue;
-		} else {
-			t_start = boost::posix_time::second_clock::local_time();
-			totalCollisionCount = 0;
-			totalShareCount = 0;
+			for (unsigned int i = 0; i < thread_num_max; ++i) {
+				CWorkerThread *worker = new CWorkerThread(this, i, _bprovider);
+				worker->work(); //spawn thread(s)
+			}
 		}
 
-		{ //send hello message
-			char* hello = new char[pool_username.length()+/*v0.2/0.3=*/2+/*v0.4=*/20+/*v0.7=*/1+pool_password.length()];
-			memcpy(hello+1, pool_username.c_str(), pool_username.length());
-			*((unsigned char*)hello) = pool_username.length();
-			*((unsigned char*)(hello+pool_username.length()+1)) = 0; //hi, i'm v0.4+
-			*((unsigned char*)(hello+pool_username.length()+2)) = VERSION_MAJOR;
-			*((unsigned char*)(hello+pool_username.length()+3)) = VERSION_MINOR;
-			*((unsigned char*)(hello+pool_username.length()+4)) = thread_num_max;
-			*((unsigned char*)(hello+pool_username.length()+5)) = fee_to_pay;
-			*((unsigned short*)(hello+pool_username.length()+6)) = miner_id;
-			*((unsigned int*)(hello+pool_username.length()+8)) = 0;
-			*((unsigned int*)(hello+pool_username.length()+12)) = 0;
-			*((unsigned int*)(hello+pool_username.length()+16)) = 0;
-			*((unsigned char*)(hello+pool_username.length()+20)) = pool_password.length();
-			memcpy(hello+pool_username.length()+21, pool_password.c_str(), pool_password.length());
-			*((unsigned short*)(hello+pool_username.length()+21+pool_password.length())) = 0; //EXTENSIONS
-			boost::system::error_code error;
-			socket->write_some(boost::asio::buffer(hello, pool_username.length()+2+20+1+pool_password.length()), error);
-			//if (error)
-			//	std::cout << error << " @ write_some_hello" << std::endl;
-			delete[] hello;
-		}
+		boost::asio::io_service io_service;
+		boost::asio::ip::tcp::resolver resolver(io_service); //resolve dns
+		boost::asio::ip::tcp::resolver::query query("ptsmine.beeeeer.org", "1337");
+		//boost::asio::ip::tcp::resolver::query query("127.0.0.1", "1337");
+		boost::asio::ip::tcp::resolver::iterator endpoint;
+		boost::asio::ip::tcp::resolver::iterator end;
+		boost::asio::ip::tcp::no_delay nd_option(true);
+		boost::asio::socket_base::keep_alive ka_option(true);
 
-		socket_to_server = socket.get(); //TODO: lock/mutex
+		while (running) {
+			endpoint = resolver.resolve(query);
+			boost::scoped_ptr<boost::asio::ip::tcp::socket> socket;
+			boost::system::error_code error_socket = boost::asio::error::host_not_found;
+			while (error_socket && endpoint != end)
+			{
+				//socket->close();
+				socket.reset(new boost::asio::ip::tcp::socket(io_service));
+				boost::asio::ip::tcp::endpoint tcp_ep = *endpoint++;
+				socket->connect(tcp_ep, error_socket);
+				std::cout << "connecting to " << tcp_ep << std::endl;
+			}
+			socket->set_option(nd_option);
+			socket->set_option(ka_option);
 
-		int reject_counter = 0;
-		bool done = false;
-		while (!done) {
-			int type = -1;
-			{ //get the data header
-				unsigned char buf = 0; //get header
+			if (error_socket) {
+				std::cout << error_socket << std::endl;
+				boost::this_thread::sleep(boost::posix_time::seconds(10));
+				continue;
+			} else {
+				t_start = boost::posix_time::second_clock::local_time();
+				totalShareCount = 0;
+			}
+
+			{ //send hello message
+				char* hello = new char[pool_username.length()+/*v0.2/0.3=*/2+/*v0.4=*/20+/*v0.7=*/1+pool_password.length()];
+				memcpy(hello+1, pool_username.c_str(), pool_username.length());
+				*((unsigned char*)hello) = pool_username.length();
+				*((unsigned char*)(hello+pool_username.length()+1)) = 0; //hi, i'm v0.4+
+				*((unsigned char*)(hello+pool_username.length()+2)) = VERSION_MAJOR;
+				*((unsigned char*)(hello+pool_username.length()+3)) = VERSION_MINOR;
+				*((unsigned char*)(hello+pool_username.length()+4)) = thread_num_max;
+				*((unsigned char*)(hello+pool_username.length()+5)) = fee_to_pay;
+				*((unsigned short*)(hello+pool_username.length()+6)) = miner_id;
+				*((unsigned int*)(hello+pool_username.length()+8)) = 0;
+				*((unsigned int*)(hello+pool_username.length()+12)) = 0;
+				*((unsigned int*)(hello+pool_username.length()+16)) = 0;
+				*((unsigned char*)(hello+pool_username.length()+20)) = pool_password.length();
+				memcpy(hello+pool_username.length()+21, pool_password.c_str(), pool_password.length());
+				*((unsigned short*)(hello+pool_username.length()+21+pool_password.length())) = 0; //EXTENSIONS
 				boost::system::error_code error;
-				size_t len = boost::asio::read(*socket_to_server, boost::asio::buffer(&buf, 1), boost::asio::transfer_all(), error);
-				if (error == boost::asio::error::eof)
-					break; // Connection closed cleanly by peer.
-				else if (error) {
-					//std::cout << error << " @ read_some1" << std::endl;
-					break;
-				}
-				type = buf;
-				if (len != 1)
-					std::cout << "error on read1: " << len << " should be " << 1 << std::endl;
+				socket->write_some(boost::asio::buffer(hello, pool_username.length()+2+20+1+pool_password.length()), error);
+				//if (error)
+				//	std::cout << error << " @ write_some_hello" << std::endl;
+				delete[] hello;
 			}
 
-			switch (type) {
-				case 0: {
-					size_t buf_size = 112; //*thread_num_max;
-					unsigned char* buf = new unsigned char[buf_size]; //get header
+			socket_to_server = socket.get(); //TODO: lock/mutex
+
+			int reject_counter = 0;
+			bool done = false;
+			while (!done) {
+				int type = -1;
+				{ //get the data header
+					unsigned char buf = 0; //get header
 					boost::system::error_code error;
-					size_t len = boost::asio::read(*socket_to_server, boost::asio::buffer(buf, buf_size), boost::asio::transfer_all(), error);
-					if (error == boost::asio::error::eof) {
-						done = true;
+					size_t len = boost::asio::read(*socket_to_server, boost::asio::buffer(&buf, 1), boost::asio::transfer_all(), error);
+					if (error == boost::asio::error::eof)
 						break; // Connection closed cleanly by peer.
-					} else if (error) {
-						//std::cout << error << " @ read2a" << std::endl;
-						done = true;
+					else if (error) {
+						//std::cout << error << " @ read_some1" << std::endl;
 						break;
 					}
-					if (len == buf_size) {
-						_bprovider->setBlocksFromData(buf);
-						std::cout << "[MASTER] work received - ";
-						if (_bprovider->getOriginalBlock() != NULL) print256("sharetarget", (uint32_t*)(_bprovider->getOriginalBlock()->targetShare));
-						else std::cout << "<NULL>" << std::endl;
-					} else
-						std::cout << "error on read2a: " << len << " should be " << buf_size << std::endl;
-					delete[] buf;
-				} break;
-				case 1: {
-					size_t buf_size = 4;
-					int buf; //get header
-					boost::system::error_code error;
-					size_t len = boost::asio::read(*socket_to_server, boost::asio::buffer(&buf, buf_size), boost::asio::transfer_all(), error);
-					if (error == boost::asio::error::eof) {
-						done = true;
-						break; // Connection closed cleanly by peer.
-					} else if (error) {
-						//std::cout << error << " @ read2b" << std::endl;
-						done = true;
-						break;
-					}
-					if (len == buf_size) {
-						int retval = buf > 1000 ? 1 : buf;
-						std::cout << "[MASTER] submitted share -> " <<
-							(retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval ==
-							1 ? "BLOCK" : "SHARE") << std::endl;
-						if (retval > 0)
-							reject_counter = 0;
-						else
-							reject_counter++;
-						if (reject_counter >= 3) {
-							std::cout << "too many rejects (3) in a row, forcing reconnect." << std::endl;
-							socket->close();
+					type = buf;
+					if (len != 1)
+						std::cout << "error on read1: " << len << " should be " << 1 << std::endl;
+				}
+
+				switch (type) {
+					case 0: {
+						size_t buf_size = 112; //*thread_num_max;
+						unsigned char* buf = new unsigned char[buf_size]; //get header
+						boost::system::error_code error;
+						size_t len = boost::asio::read(*socket_to_server, boost::asio::buffer(buf, buf_size), boost::asio::transfer_all(), error);
+						if (error == boost::asio::error::eof) {
 							done = true;
+							break; // Connection closed cleanly by peer.
+						} else if (error) {
+							//std::cout << error << " @ read2a" << std::endl;
+							done = true;
+							break;
 						}
-						{
-							std::map<int,unsigned long>::iterator it = statistics.find(retval);
-							if (it == statistics.end())
-								statistics.insert(std::pair<int,unsigned long>(retval,1));
+						if (len == buf_size) {
+							_bprovider->setBlocksFromData(buf);
+							std::cout << "[MASTER] work received";
+							//TODO:
+							//if (_bprovider->getOriginalBlock() != NULL) print256("sharetarget", (uint32_t*)(_bprovider->getOriginalBlock()->targetShare));
+							//else std::cout << "<NULL>" << std::endl;
+						} else
+							std::cout << "error on read2a: " << len << " should be " << buf_size << std::endl;
+						delete[] buf;
+					} break;
+					case 1: {
+						size_t buf_size = 4;
+						int buf; //get header
+						boost::system::error_code error;
+						size_t len = boost::asio::read(*socket_to_server, boost::asio::buffer(&buf, buf_size), boost::asio::transfer_all(), error);
+						if (error == boost::asio::error::eof) {
+							done = true;
+							break; // Connection closed cleanly by peer.
+						} else if (error) {
+							//std::cout << error << " @ read2b" << std::endl;
+							done = true;
+							break;
+						}
+						if (len == buf_size) {
+							int retval = buf > 1000 ? 1 : buf;
+							std::cout << "[MASTER] submitted share -> " <<
+								(retval == 0 ? "REJECTED" : retval < 0 ? "STALE" : retval ==
+								1 ? "BLOCK" : "SHARE") << std::endl;
+							if (retval > 0)
+								reject_counter = 0;
 							else
-								statistics[retval]++;
-							stats_running();
-						}
-					} else
-						std::cout << "error on read2b: " << len << " should be " << buf_size << std::endl;
-				} break;
-				case 2: {
-					//PING-PONG EVENT, nothing to do
-				} break;
-				default: {
-					//std::cout << "unknown header type = " << type << std::endl;
+								reject_counter++;
+							if (reject_counter >= 3) {
+								std::cout << "too many rejects (3) in a row, forcing reconnect." << std::endl;
+								socket->close();
+								done = true;
+							}
+							{
+								std::map<int,unsigned long>::iterator it = statistics.find(retval);
+								if (it == statistics.end())
+									statistics.insert(std::pair<int,unsigned long>(retval,1));
+								else
+									statistics[retval]++;
+								stats_running();
+							}
+						} else
+							std::cout << "error on read2b: " << len << " should be " << buf_size << std::endl;
+					} break;
+					case 2: {
+						//PING-PONG EVENT, nothing to do
+					} break;
+					default: {
+						//std::cout << "unknown header type = " << type << std::endl;
+					}
 				}
 			}
+
+			_bprovider->setBlockTo(NULL);
+			socket_to_server = NULL; //TODO: lock/mutex		
+			std::cout << "no connection to the server, reconnecting in 10 seconds" << std::endl;
+			boost::this_thread::sleep(boost::posix_time::seconds(10));
 		}
-
-		_bprovider->setBlockTo(NULL);
-		socket_to_server = NULL; //TODO: lock/mutex		
-		std::cout << "no connection to the server, reconnecting in 10 seconds" << std::endl;
-		boost::this_thread::sleep(boost::posix_time::seconds(10));
 	}
-  }
 
-  ~CMasterThread() {}
+	~CMasterThread() {} //TODO: <-- this
 
-  void wait_for_master() {
-    boost::shared_lock<boost::shared_mutex> lock(_mutex_master);
-  }
+	void wait_for_master() {
+		boost::shared_lock<boost::shared_mutex> lock(_mutex_master);
+	}
 
-  boost::shared_mutex& get_working_lock() {
-    return _mutex_working;
-  }
+	boost::shared_mutex& get_working_lock() {
+		return _mutex_working;
+	}
 
 private:
 
-  void wait_for_workers() {
-    boost::unique_lock<boost::shared_mutex> lock(_mutex_working);
-  }
+	void wait_for_workers() {
+		boost::unique_lock<boost::shared_mutex> lock(_mutex_working);
+	}
 
-  CBlockProviderGW  *_bprovider;
+	CBlockProviderGW  *_bprovider;
 
-  boost::shared_mutex _mutex_master;
-  boost::shared_mutex _mutex_working;
+	boost::shared_mutex _mutex_master;
+	boost::shared_mutex _mutex_working;
 
 	// Provides real time stats
 	void stats_running() {
@@ -426,7 +402,6 @@ private:
 		}
 		std::cout << "[STATS] " << t_end << " | ";
 		if ((t_end - t_start).total_seconds() > 0) {
-			std::cout << static_cast<double>(totalCollisionCount) / (static_cast<double>((t_end - t_start).total_seconds()) / 60.0) << " c/m | ";
 			std::cout << static_cast<double>(totalShareCount) / (static_cast<double>((t_end - t_start).total_seconds()) / 60.0) << " sh/m | ";			
 		}
 		if (valid+blocks+rejects+stale > 0) {
@@ -526,7 +501,6 @@ int main(int argc, char **argv)
 	std::cout << "********************************************" << std::endl;
 	std::cout << "*** ptsminer - Pts Pool Miner v" << VERSION_MAJOR << "." << VERSION_MINOR << " " << VERSION_EXT << std::endl;
 	std::cout << "*** by xolokram/TB - www.beeeeer.org - glhf" << std::endl;
-	//std::cout << "*** thanks to jh00, testix & Co." << std::endl; //...for no transactions in the network? pff!
 	std::cout << "***" << std::endl;
 	std::cout << "*** press CTRL+C to exit" << std::endl;
 	std::cout << "********************************************" << std::endl;
@@ -537,53 +511,10 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	use_avxsse4 = false;
-	if (argc == 5) {
-		std::string mode_param(argv[4]);
-		if (mode_param == "avx") {
-			Init_SHA512_avx();
-			use_avxsse4 = true;
-			std::cout << "using AVX" << std::endl;
-		} else if (mode_param == "sse4") {
-			Init_SHA512_sse4();
-			use_avxsse4 = true;
-			std::cout << "using SSE4" << std::endl;
-		} else if (mode_param == "sph") {
-			std::cout << "using SPHLIB" << std::endl;
-		} else {
-			std::cout << "invalid mode" << std::endl << std::endl;
-			print_help(argv[0]);
-			return EXIT_FAILURE;
-		}
-	} else {
-#ifdef	__x86_64__
-		processor_info_t proc_info;
-		cpuid_basic_identify(&proc_info);
-		if (proc_info.proc_type == PROC_X64_INTEL || proc_info.proc_type == PROC_X64_AMD) {
-			if (proc_info.avx_level > 0) {
-				Init_SHA512_avx();
-				use_avxsse4 = true;
-				std::cout << "using AVX" << std::endl;
-			} else if (proc_info.sse_level >= 4) {
-				Init_SHA512_sse4();
-				use_avxsse4 = true;
-				std::cout << "using SSE4" << std::endl;
-			} else
-				std::cout << "using SPHLIB (no avx/sse4)" << std::endl;
-		} else
-			std::cout << "using SPHLIB (unsupported arch)" << std::endl;
-#else
-		//TODO: make this compatible with 32bit systems
-		std::cout << "**** >>> WARNING" << std::endl;
-		std::cout << "**" << std::endl;
-		std::cout << "**" << "SSE4/AVX auto-detection not available on your machine" << std::endl;
-		std::cout << "**" << "please enable SSE4 or AVX manually" << std::endl;
-		std::cout << "**" << std::endl;
-		std::cout << "**** >>> WARNING" << std::endl;
-#endif
-	}
+	//TODO: optimize the code using SPH,SSE,AVX,etc.pp. #2/2
 
 	t_start = boost::posix_time::second_clock::local_time();
+	totalShareCount = 0;
 	running = true;
 
 #if defined(__MINGW32__) || defined(__MINGW64__)
@@ -594,52 +525,30 @@ int main(int argc, char **argv)
 
 	const int atexit_res = std::atexit(exit_handler);
 	if (atexit_res != 0)
-		std::cerr << "atexit registration failed, shutdown will be dirty!" << std::endl;
+		std::cerr << "atexit registration failed, shutdown will be (more) dirty!!" << std::endl;
 
 	// init everything:
 	socket_to_server = NULL;
 	thread_num_max = atoi(argv[2]); //GetArg("-genproclimit", 1); // what about boost's hardware_concurrency() ?
-	if (argc == 4 || argc == 5)
-		COLLISION_TABLE_BITS = atoi(argv[3]);
-	else
-		COLLISION_TABLE_BITS = 27;
 	fee_to_pay = 0; //GetArg("-poolfee", 3);
 	miner_id = 0; //GetArg("-minerid", 0);
 	pool_username = argv[1]; //GetArg("-pooluser", "");
-	pool_password = "blabla"; //GetArg("-poolpassword", "");
-	
-	if (COLLISION_TABLE_BITS < 20 || COLLISION_TABLE_BITS > 30)
+	pool_password = "."; //GetArg("-poolpassword", "");
+
+	if (thread_num_max < 1)
 	{
-		std::cerr << "unsupported memory option, choose a value between 20 and 31" << std::endl;
+		std::cerr << "error: unsupported number of threads" << std::endl;
 		return EXIT_FAILURE;
 	}
 
-	if (thread_num_max == 0 || thread_num_max > MAX_THREADS)
-	{
-		std::cerr << "usage: " << "current maximum supported number of threads = " << MAX_THREADS << std::endl;
-		return EXIT_FAILURE;
-	}
+	//TODO: pw feature?
 
-	{
-		unsigned char pw[32];
-		//SPH
-		sph_sha256_context c256_sph;		
-		sph_sha256_init(&c256_sph);
-		sph_sha256(&c256_sph, (unsigned char*)pool_password.c_str(), pool_password.size());
-		sph_sha256_close(&c256_sph, pw);
-		//print256("sph",(uint32_t*)pw);
-		//
-		std::stringstream ss;
-		ss << std::setw(5) << std::setfill('0') << std::hex << (pw[0] ^ pw[5] ^ pw[2] ^ pw[7]) << (pw[4] ^ pw[1] ^ pw[6] ^ pw[3]);
-		pool_password = ss.str();	
-	}
-
-	// ok, start mining:
+	//start mining:
 	CBlockProviderGW* bprovider = new CBlockProviderGW();
 	CMasterThread *mt = new CMasterThread(bprovider);
 	mt->run();
 
-	// end:
+	//ok, done.
 	return EXIT_SUCCESS;
 }
 

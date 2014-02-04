@@ -8,7 +8,7 @@
 #include <boost/date_time/posix_time/posix_time_io.hpp>
 #include <cstring>
 
-enum SHAMODE { SPHLIB = 0, AVXSSE4 };
+enum CPUMODE { SPHLIB = 0, SSE3, SSE4, AVX };
 
 typedef struct {
   // comments: BYTES <index> + <length>
