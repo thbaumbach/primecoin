@@ -561,6 +561,10 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType) {
 
 #elif defined(__GNUG__)
 
+#ifdef __FreeBSD__
+#define sighandler_t sig_t
+#endif
+
 static sighandler_t set_signal_handler (int signum, sighandler_t signalhandler) {
    struct sigaction new_sig, old_sig;
    new_sig.sa_handler = signalhandler;
