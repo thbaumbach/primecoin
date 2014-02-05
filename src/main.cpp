@@ -4630,6 +4630,12 @@ void static BitcoinMiner(CWallet *pwallet)
     double dAverageBlockExpectedPrev = 0.0; // previous average expected blocks per second
     unsigned int nPrimorialMultiplierPrev = nPrimorialMultiplier; // previous primorial factor
 
+    // Primecoin HP: Increase initial primorial
+    if (fTestNet)
+        nPrimorialMultiplier = nInitialPrimorialMultiplierTestnet;
+    else
+        nPrimorialMultiplier = nInitialPrimorialMultiplier;
+
     // Primecoin: Check if a fixed primorial was requested
     unsigned int nFixedPrimorial = (unsigned int)GetArg("-primorial", 0);
     if (nFixedPrimorial > 0)

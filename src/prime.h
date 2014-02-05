@@ -43,6 +43,9 @@ static const mpz_class mpzOne = 1;
 static const mpz_class mpzTwo = 2;
 static const mpz_class mpzPrimeMax = (mpzOne << 2000) - 1;
 static const mpz_class mpzPrimeMin = (mpzOne << 255);
+static const unsigned int nPrimorialHashFactor = 7;
+static const unsigned int nInitialPrimorialMultiplier = 47;
+static const unsigned int nInitialPrimorialMultiplierTestnet = 17;
 
 // Mining statistics
 static const unsigned int nMaxChainLength = 24;
@@ -610,8 +613,6 @@ public:
     bool IsDepleted() { return fIsDepleted; }
     void Deplete() { fIsDepleted = true; }
 };
-
-static const unsigned int nPrimorialHashFactor = 7;
 
 inline void mpz_set_uint256(mpz_t r, uint256& u)
 {
