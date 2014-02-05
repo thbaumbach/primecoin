@@ -21,13 +21,13 @@ BEGIN
         BLOCK "040904E4" // U.S. English - multilingual (hex)
         BEGIN
             VALUE "CompanyName",        "Primecoin"
-            VALUE "FileDescription",    "Primecoin-Qt (OSS GUI client for Primecoin)"
+            VALUE "FileDescription",    "Primecoin High Performance-Qt"
             VALUE "FileVersion",        VER_FILEVERSION_STR
-            VALUE "InternalName",       "primecoin-qt"
+            VALUE "InternalName",       "primecoin-hp-qt"
             VALUE "LegalCopyright",     COPYRIGHT_STR
             VALUE "LegalTrademarks1",   "Distributed under conditional MIT/X11 software license, see the accompanying file COPYING."
             VALUE "OriginalFilename",   "primecoin-qt.exe"
-            VALUE "ProductName",        "Primecoin-Qt"
+            VALUE "ProductName",        "Primecoin High Performance-Qt"
             VALUE "ProductVersion",     VER_PRODUCTVERSION_STR
         END
     END

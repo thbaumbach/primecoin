@@ -755,8 +755,8 @@ Aadress: %4⏎</translation>
     <message>
         <location filename="../guiutil.cpp" line="+424"/>
         <location line="+12"/>
-        <source>Primecoin-Qt</source>
-        <translation>Primecoini-Qt</translation>
+        <source>Primecoin High Performance-Qt</source>
+        <translation>Primecoin High Performance-Qt</translation>
     </message>
     <message>
         <location line="-12"/>

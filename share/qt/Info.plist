@@ -15,9 +15,9 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleExecutable</key>
-	<string>Primecoin-Qt</string>
+	<string>Primecoin-HP-Qt</string>
 	<key>CFBundleIdentifier</key>
-	<string>org.primecoin.Primecoin-Qt</string>
+	<string>org.primecoin.Primecoin-HP-Qt</string>
         <key>CFBundleURLTypes</key>
         <array>
           <dict>

@@ -68,7 +68,7 @@ BitcoinGUI::BitcoinGUI(QWidget *parent) :
     prevBlocks(0)
 {
     restoreWindowGeometry();
-    setWindowTitle(tr("Primecoin") + " - " + tr("Wallet"));
+    setWindowTitle(tr("Primecoin High Performance") + " - " + tr("Wallet"));
 #ifndef Q_OS_MAC
     QApplication::setWindowIcon(QIcon(":icons/primecoin"));
     setWindowIcon(QIcon(":icons/primecoin"));
@@ -598,7 +598,7 @@ void BitcoinGUI::setNumBlocks(int count, int nTotalBlocks)
 
 void BitcoinGUI::message(const QString &title, const QString &message, unsigned int style, bool *ret)
 {
-    QString strTitle = tr("Primecoin"); // default title
+    QString strTitle = tr("Primecoin High Performance"); // default title
     // Default to information icon
     int nMBoxIcon = QMessageBox::Information;
     int nNotifyIcon = Notificator::Information;

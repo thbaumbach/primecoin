@@ -153,9 +153,9 @@ int main(int argc, char *argv[])
     QApplication::setOrganizationName("Primecoin");
     QApplication::setOrganizationDomain("primecoin.org");
     if(GetBoolArg("-testnet")) // Separate UI settings for testnet
-        QApplication::setApplicationName("Primecoin-Qt-testnet");
+        QApplication::setApplicationName("Primecoin-HP-Qt-testnet");
     else
-        QApplication::setApplicationName("Primecoin-Qt");
+        QApplication::setApplicationName("Primecoin-HP-Qt");
 
     // ... then GUI settings:
     OptionsModel optionsModel;

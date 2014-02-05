@@ -176,7 +176,7 @@ bool AppInit(int argc, char* argv[])
         if (mapArgs.count("-?") || mapArgs.count("--help"))
         {
             // First part of help message is specific to bitcoind / RPC client
-            std::string strUsage = _("Primecoin version") + " " + FormatFullVersion() + "\n\n" +
+            std::string strUsage = _("Primecoin High Performance version") + " " + FormatFullVersion() + "\n\n" +
                 _("Usage:") + "\n" +
                   "  primecoind [options]                     " + "\n" +
                   "  primecoind [options] <command> [params]  " + _("Send command to -server or primecoind") + "\n" +
@@ -627,7 +627,7 @@ bool AppInit2(boost::thread_group& threadGroup)
     if (GetBoolArg("-shrinkdebugfile", !fDebug))
         ShrinkDebugFile();
     printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    printf("Primecoin version %s (%s)\n", FormatFullVersion().c_str(), CLIENT_DATE.c_str());
+    printf("Primecoin High Performance version %s (%s)\n", FormatFullVersion().c_str(), CLIENT_DATE.c_str());
     printf("Using OpenSSL version %s\n", SSLeay_version(SSLEAY_VERSION));
     if (!fLogTimestamps)
         printf("Startup time: %s\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());

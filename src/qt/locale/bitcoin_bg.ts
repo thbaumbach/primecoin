@@ -752,7 +752,7 @@ Address: %4
     <message>
         <location filename="../guiutil.cpp" line="+424"/>
         <location line="+12"/>
-        <source>Primecoin-Qt</source>
+        <source>Primecoin High Performance-Qt</source>
         <translation type="unfinished"/>
     </message>
     <message>
@@ -2183,8 +2183,8 @@ Address: %4
     <name>primecoin-core</name>
     <message>
         <location filename="../bitcoinstrings.cpp" line="+94"/>
-        <source>Primecoin version</source>
-        <translation>Биткоин версия</translation>
+        <source>Primecoin High Performance version</source>
+        <translation>Primecoin High Performance версия</translation>
     </message>
     <message>
         <location line="+102"/>
