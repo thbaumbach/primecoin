@@ -19,7 +19,8 @@ Sieve parameters
 ----------------
 
  * -sievesize determines how many numbers go through the sieve in one go. The
-default value is 1 million. This value has very little impact on performance.
+default value is 917504 (default value of -l1cachesize times 32). This value
+has very little impact on performance.
 
  * -sievefilterprimes determines how many primes factors will be filtered out
 by the sieve. The default value is 7849. This value has a minor impact on
@@ -32,7 +33,7 @@ performance.
 
  * -l1cachesize determines the sieve segment size (in bytes). This should be
 the size of the L1 or L2 cache (or some other number close to them). The
-default value is 28000. This value has a minor impact on mining performance.
+default value is 28672. This value has a minor impact on mining performance.
 
  * -primorial determines the primorial that is used as a multiplier in all
 candidate numbers. This should a small prime number such as 47 or 53. Use the
