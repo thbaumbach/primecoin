@@ -62,11 +62,11 @@ static const unsigned int nDefaultSieveFilterPrimes = 7849u;
 static const unsigned int nMinSieveFilterPrimes = 1000u;
 extern unsigned int nSieveFilterPrimes;
 static const unsigned int nMaxSieveSize = 10000000u;
-static const unsigned int nDefaultSieveSize = 1000000u;
+static const unsigned int nDefaultSieveSize = 917504u;
 static const unsigned int nMinSieveSize = 100000u;
 extern unsigned int nSieveSize;
 static const unsigned int nMaxL1CacheSize = 128000u;
-static const unsigned int nDefaultL1CacheSize = 28000u;
+static const unsigned int nDefaultL1CacheSize = 28672u;
 static const unsigned int nMinL1CacheSize = 12000u;
 extern unsigned int nL1CacheSize;
 static const uint256 hashBlockHeaderLimit = (uint256(1) << 255);
@@ -77,6 +77,9 @@ static const mpz_class mpzOne = 1;
 static const mpz_class mpzTwo = 2;
 static const mpz_class mpzPrimeMax = (mpzOne << 2000) - 1;
 static const mpz_class mpzPrimeMin = (mpzOne << 255);
+static const unsigned int nPrimorialHashFactor = 7;
+static const unsigned int nInitialPrimorialMultiplier = 47;
+static const unsigned int nInitialPrimorialMultiplierTestnet = 17;
 
 // Mining statistics
 static const unsigned int nMaxChainLength = 24;
@@ -644,8 +647,6 @@ public:
     bool IsDepleted() { return fIsDepleted; }
     void Deplete() { fIsDepleted = true; }
 };
-
-static const unsigned int nPrimorialHashFactor = 7;
 
 inline void mpz_set_uint256(mpz_t r, uint256& u)
 {

@@ -50,11 +50,11 @@ void GeneratePrimeTable()
     nSieveSize = std::max(std::min(nSieveSize, nMaxSieveSize), nMinSieveSize);
     nSieveFilterPrimes = (unsigned int)GetArg("-sievefilterprimes", nDefaultSieveFilterPrimes);
     nSieveFilterPrimes = std::max(std::min(nSieveFilterPrimes, nMaxSieveFilterPrimes), nMinSieveFilterPrimes);
-    nL1CacheSize = (unsigned int)GetArg("-l1cacheelements", nDefaultL1CacheSize);
+    nL1CacheSize = (unsigned int)GetArg("-l1cachesize", nDefaultL1CacheSize);
     nL1CacheSize = std::max(std::min(nL1CacheSize, nMaxL1CacheSize), nMinL1CacheSize);
     nL1CacheSize = nL1CacheSize / 8 * 8; // make it a multiple of 8
     fBetterStatistics = GetBoolArg("-betterstats");
-    printf("GeneratePrimeTable() : setting nSieveExtensions = %u, nSieveSize = %u, nSieveFilterPrimes = %u\n", nSieveExtensions, nSieveSize, nSieveFilterPrimes);
+    printf("GeneratePrimeTable() : setting nSieveExtensions = %u, nSieveSize = %u, nSieveFilterPrimes = %u, nL1CacheSize = %u\n", nSieveExtensions, nSieveSize, nSieveFilterPrimes, nL1CacheSize);
 
     const unsigned nPrimeTableLimit = 1000000u;
     vPrimes.clear();
