@@ -313,12 +313,12 @@ unsigned int TargetGetFractional(unsigned int nBits)
 {
     return (nBits & TARGET_FRACTIONAL_MASK);
 }
-/*
+
 uint64 TargetGetFractionalDifficulty(unsigned int nBits)
 {
     return (nFractionalDifficultyMax / (uint64) ((1llu<<nFractionalBits) - TargetGetFractional(nBits)));
 }
-
+/*
 bool TargetSetFractionalDifficulty(uint64 nFractionalDifficulty, unsigned int& nBits)
 {
     if (nFractionalDifficulty < nFractionalDifficultyMin)
@@ -331,7 +331,7 @@ bool TargetSetFractionalDifficulty(uint64 nFractionalDifficulty, unsigned int& n
     nBits |= (unsigned int)nFractional;
     return true;
 }
-
+*/
 std::string TargetToString(unsigned int nBits)
 {
     return strprintf("%02x.%06x", TargetGetLength(nBits), TargetGetFractional(nBits));
@@ -341,7 +341,7 @@ unsigned int TargetFromInt(unsigned int nLength)
 {
     return (nLength << nFractionalBits);
 }
-
+/*
 // Get mint value from target
 // Primecoin mint rate is determined by target
 //   mint = 999 / (target length ** 2)
@@ -971,8 +971,8 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             bnPrimeChainMultiplier.SetHex(mpzPrimeChainMultiplier.get_str(16));
             block.bnPrimeChainMultiplier = bnPrimeChainMultiplier;
             printf("nTriedMultiplier = %u\n", nTriedMultiplier); // Debugging
-            printf("Probable prime chain found for block=%s!!\n  Target: %s\n  Chain: %s\n", block.GetHash().GetHex().c_str(),
-                TargetToString(block.nBits).c_str(), GetPrimeChainName(nCandidateType, nChainLength).c_str());
+            //printf("Probable prime chain found for block=%s!!\n  Target: %s\n  Chain: %s\n", block.GetHash().GetHex().c_str(),
+			//	TargetToString(block.nBits).c_str(), GetPrimeChainName(nCandidateType, nChainLength).c_str());
             return true;
         }
     }

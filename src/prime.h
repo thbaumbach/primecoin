@@ -11,7 +11,6 @@
 //#include "base58.h"
 typedef int CBitcoinAddress;
 typedef int CBlockIndex;
-typedef int CBlock; //TODO
 #define fTestNet false
 #define fDebug false
 const char* GetArg(const char* key, const char* defaultval) { return ""; }
@@ -27,6 +26,20 @@ int64 GetTimeMicros() { return 0; }
 CBlockIndex* pindexBest = NULL;
 int64 nHPSTimerStart = 0;
 #include <cmath>//for log
+
+#include <stdint.h>
+typedef struct { //TODO...
+  // comments: BYTES <index> + <length>
+  int32_t nVersion;            // 0+4
+  uint8_t hashPrevBlock[32];       // 4+32
+  uint8_t hashMerkleRoot[32];      // 36+32
+  uint32_t  nTime;               // 68+4
+  uint32_t  nBits;               // 72+4
+  uint32_t  nNonce;              // 76+4
+  //
+  CBigNum bnPrimeChainMultiplier;
+} CBlock; 
+
 //</xolominer>
 
 #include <gmp.h>

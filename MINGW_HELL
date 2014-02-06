@@ -3,4 +3,4 @@
 TODO: this
 
 hint:
-cmake -G "MSYS Makefiles" -DBOOST_ROOT=<BOOST_DIR> ..
+cmake -G "MSYS Makefiles" -DBOOST_ROOT=<BOOST_ROOT_DIR> -DOpenSSL_ROOT_DIR=<OPENSSL_ROOT_DIR> ..
