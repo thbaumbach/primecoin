@@ -32,19 +32,19 @@ IF(GMP_FOUND)
 	MESSAGE("  GMP_INCLUDE_DIR: ${GMP_INCLUDE_DIR}") 
 	MESSAGE("  GMP(XX)_LIBRARIES: ${GMP_LIBRARIES} (${GMPXX_LIBRARIES})") 
 	INCLUDE_DIRECTORIES(${GMP_INCLUDE_DIR})
-ELSE(GMP_FOUND)
+ELSE()
 	MESSAGE(FATAL_ERROR "libGMP -NOT- found" )
-ENDIF(GMP_FOUND)
+ENDIF()
 
 ###
 ### BOOST
 ###
 SET(Boost_USE_MULTITHREADED ON)
 SET(Boost_USE_STATIC_LIBS ON)
-SET(Boost_USE_MULTITHREAD ON)
-SET(BOOST_MIN_VERSION "1.43.0")
+#SET(Boost_COMPILER "-gcc43") #set this to the compiler suffix used by Boost if FindBoost has problems
+#SET(Boost_ADDITIONAL_VERSIONS "0.99" "0.99.0" "1.78" "1.78.0") #for future boost releases
 
-FIND_PACKAGE(Boost ${BOOST_MIN_VERSION} COMPONENTS system thread timer chrono REQUIRED)
+FIND_PACKAGE(Boost 1.43.0 COMPONENTS system thread timer chrono REQUIRED)
 
 MESSAGE("Boost information: found ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}") 
 MESSAGE("  Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}") 
@@ -54,17 +54,19 @@ MESSAGE("  Boost_LIBRARIES: ${Boost_LIBRARIES}")
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 
-#TODO: 32 BIT !?
-if (APPLE)
-    set(CMAKE_ASM_FLAGS "-f macho64 --prefix=_")
-else (UNIX)
-    SET(CMAKE_ASM_FLAGS "-f elf64")
-else ()
-    SET(CMAKE_ASM_FLAGS "-f win64")
-endif()
-
-SET(CMAKE_ASM_COMPILER "yasm")
-ENABLE_LANGUAGE(ASM)
+###
+### YASM (not needed atm)
+###
+#IF(APPLE)
+#    set(CMAKE_ASM_FLAGS "-f macho64 --prefix=_") #TODO: 32 BIT?
+#ELSE(UNIX)
+#    SET(CMAKE_ASM_FLAGS "-f elf64") #TODO: 32 BIT?
+#ELSE()
+#    SET(CMAKE_ASM_FLAGS "-f win64") #TODO: 32 BIT?
+#ENDIF()
+#
+#SET(CMAKE_ASM_COMPILER "yasm")
+#ENABLE_LANGUAGE(ASM)
 
 ###
 ### GENERAL SOURCE STUFF
@@ -89,24 +91,22 @@ ADD_EXECUTABLE(xolominer
 #TARGET_LINK_LIBRARIES(xolominer ${Boost_SYSTEM_LIBRARY})
 #TARGET_LINK_LIBRARIES(xolominer ${Boost_THREAD_LIBRARY})
 #TARGET_LINK_LIBRARIES(xolominer ${Boost_TIMER_LIBRARY})
+#TARGET_LINK_LIBRARIES(xolominer ${Boost_CHRONO_LIBRARY})
 TARGET_LINK_LIBRARIES(xolominer ${Boost_LIBRARIES})
-
 TARGET_LINK_LIBRARIES(xolominer ${GMP_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer ${GMPXX_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer ${OpenSSL_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer pthread)
-#<MINGW>
-#TARGET_LINK_LIBRARIES(xolominer "-DWIN32 -D_WINDOWS -DBOOST_THREAD_USE_LIB -DBOOST_SPIRIT_THREADSAFE -Wl,--dynamicbase -Wl,--nxcompat -static") #needed?
-TARGET_LINK_LIBRARIES(xolominer "ws2_32") #needed?
-#TARGET_LINK_LIBRARIES(xolominer "mswsock") #needed?
-#TARGET_LINK_LIBRARIES(xolominer "shlwapi") #needed?
-#</MINGW>
+IF(WIN32) #<MINGW>
+	TARGET_LINK_LIBRARIES(xolominer "ws2_32")
+#	TARGET_LINK_LIBRARIES(xolominer "mswsock") #needed?
+#	TARGET_LINK_LIBRARIES(xolominer "shlwapi") #needed?
+#	TARGET_LINK_LIBRARIES(xolominer "-DWIN32 -D_WINDOWS -DBOOST_THREAD_USE_LIB -DBOOST_SPIRIT_THREADSAFE -Wl,--dynamicbase -Wl,--nxcompat -static") #needed?
+ENDIF() #</MINGW>
 
 ###
 ### COMMON FLAGS
 ###
-SET(CMAKE_CC_FLAGS "${CMAKE_CC_FLAGS} -O2 -pthread") # let's keep it simple (no DEBUG/RELEASE difference atm)
-SET(CMAKE_C_FLAGS "${CMAKE_CC_FLAGS} -O2 -pthread") # ^ <-- THIS is actually bad for SPHLIB
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -pthread") # ^
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -pthread") # DEBUG/RELEASE flags omitted atm (for simplification)
 #SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 #SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DGLIBC_XX_DEBUG -Wall -ggdb -g3 -fno-rounding-math -msse -O0")
