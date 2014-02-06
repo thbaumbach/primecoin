@@ -49,7 +49,7 @@ else ()
 endif()
 
 SET(CMAKE_ASM_COMPILER "yasm")
-enable_language(ASM)
+ENABLE_LANGUAGE(ASM)
 
 ###
 ### GENERAL SOURCE STUFF

@@ -5,6 +5,28 @@
 #include "prime.h"
 #include <climits>
 
+//<xolominer>
+#include <stdarg.h>
+std::string strprintf(const char *fmt, ...)
+{
+	char buf[500];
+	va_list ap;
+	va_start(ap, fmt);
+	int n = vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+	if (n < sizeof(buf))
+		return std::string(buf);
+	// a more complicated case, with a large string
+	char *s = new char[n+1];
+	va_start(ap, fmt);
+	vsnprintf(s, n+1, fmt, ap);
+	va_end(ap);
+	std::string ret(s);
+	delete[] s;
+	return ret;
+}
+//</xolominer>
+
 /**********************/
 /* PRIMECOIN PROTOCOL */
 /**********************/
@@ -77,7 +99,7 @@ void InitPrimeMiner()
         printf("InitPrimeMiner() : Setting sieve target length to %d\n", nSieveTargetLength);
 
     // Primecoin HP: Optional automatic donations with every block found
-    std::string strDonationPercentage = GetArg("-donationpercentage", "0.0");
+    /*std::string strDonationPercentage = GetArg("-donationpercentage", "0.0");
     std::string strDonationAddress = GetArg("-donationaddress", !fTestNet ? strDefaultDonationAddress : strDefaultDonationAddressTestnet);
     dDonationPercentage = atof(strDonationPercentage.c_str());
     if (dDonationPercentage < dMinDonationPercentage)
@@ -91,13 +113,13 @@ void InitPrimeMiner()
     }
     if (dDonationPercentage > 0.001)
         printf("InitPrimeMiner(): Donating %2.2f%% of every block found to %s (thank you!)\n", dDonationPercentage, strDonationAddress.c_str());
-    else
+    else*/
         printf("InitPrimeMiner(): Donations disabled\n");
 }
 
 void PrintMinerStatistics()
 {
-    printf("========================================================================\n");
+/*    printf("========================================================================\n");
     printf("Miner statistics\n");
     printf("========================================================================\n");
 
@@ -109,7 +131,7 @@ void PrintMinerStatistics()
     printf("Running time: %.4f hours\n", dRunningHours);
     printf("CPU time: %.4f hours\n", dCPUHours);
 
-    printf("Tests: %"PRI64u"\n", nTotalTests);
+    //printf("Tests: %"PRI64u"\n", nTotalTests);
     printf("Blocks found: %u\n", nTotalBlocksFound);
 
     // Find the last non-zero chain count
@@ -129,7 +151,7 @@ void PrintMinerStatistics()
         printf("%u-chains: %"PRI64u"\n", i + 1, vTotalChainsFound[i]);
 
     printf("========================================================================\n");
-
+*/
     // Reset statistics
     nHPSTimerStart = 0;
     ResetMinerStatistics();
@@ -137,7 +159,7 @@ void PrintMinerStatistics()
 
 void PrintCompactStatistics(volatile unsigned int vFoundChainCounter[nMaxChainLength])
 {
-    std::string strOutput;
+/*    std::string strOutput;
     if (fLogTimestamps)
         strOutput = "chainstats ";
     else
@@ -148,7 +170,7 @@ void PrintCompactStatistics(volatile unsigned int vFoundChainCounter[nMaxChainLe
             strOutput += strprintf(" %uch: %u", i + 1, vFoundChainCounter[i]);
     }
     printf("%s\n", strOutput.c_str());
-
+*/
     // Reset the statistics
     for (unsigned int i = 0; i < nMaxChainLength; i++)
         vFoundChainCounter[i] = 0;
@@ -233,7 +255,7 @@ unsigned int PrimorialFast(unsigned int p)
     }
     return nPrimorial;
 }
-/*
+
 // Compute first primorial number greater than or equal to pn
 void PrimorialAt(mpz_class& bn, mpz_class& mpzPrimorial)
 {
@@ -291,7 +313,7 @@ unsigned int TargetGetFractional(unsigned int nBits)
 {
     return (nBits & TARGET_FRACTIONAL_MASK);
 }
-
+/*
 uint64 TargetGetFractionalDifficulty(unsigned int nBits)
 {
     return (nFractionalDifficultyMax / (uint64) ((1llu<<nFractionalBits) - TargetGetFractional(nBits)));
@@ -377,7 +399,7 @@ bool TargetGetNext(unsigned int nBits, int64 nInterval, int64 nTargetSpacing, in
         return error("TargetGetNext() : unable to set fractional difficulty prev=0x%016"PRI64x" new=0x%016"PRI64x, nFractionalDifficulty, nFractionalDifficultyNew);
     return true;
 }
-
+*/
 // Check Fermat probable primality test (2-PRP): 2 ** (n-1) = 1 (mod n)
 // true: n is probable prime
 // false: n is composite; set fractional length in the nLength output
@@ -615,7 +637,6 @@ unsigned int EstimateWorkTransition(unsigned int nPrevWorkTransition, unsigned i
         nWorkTransition = ((nInterval - 1) * nWorkTransition + 2 * ((uint64) nBitsCeiling)) / (nInterval + 1);
     return nWorkTransition;
 }
-*/
 
 /********************/
 /* PRIMECOIN MINING */

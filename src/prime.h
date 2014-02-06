@@ -11,7 +11,22 @@
 //#include "base58.h"
 typedef int CBitcoinAddress;
 typedef int CBlockIndex;
-using std;
+typedef int CBlock; //TODO
+#define fTestNet false
+#define fDebug false
+const char* GetArg(const char* key, const char* defaultval) { return ""; }
+std::string GetArg(const char* key, const std::string& defaultval) { return ""; }
+unsigned int GetArg(const char* key, unsigned int defaultval) { return 0; }
+//unsigned int GetArg(const char* key, const char* defaultval) { return 0; }
+bool GetBoolArg(const char* key) { return false; }
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h> //for PRIu64
+#include <boost/foreach.hpp>
+bool error(const char* msg, ...) { printf("%s\n",msg); return false; }
+int64 GetTimeMicros() { return 0; }
+CBlockIndex* pindexBest = NULL;
+int64 nHPSTimerStart = 0;
+#include <cmath>//for log
 //</xolominer>
 
 #include <gmp.h>
@@ -521,7 +536,7 @@ public:
         // Acquire the current word from the bitmap
         sieve_word_t lBits = vfActiveCandidates[GetWordNum(nCandidateIndex)];
 
-        loop
+        for (;;)
         {
             nCandidateIndex++;
             if (nCandidateIndex >= nSieveSize)

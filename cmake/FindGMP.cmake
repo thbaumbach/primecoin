@@ -3,7 +3,7 @@ IF (NOT CMAKE_FIND_LIBRARY_PREFIXES)
 ENDIF (NOT CMAKE_FIND_LIBRARY_PREFIXES)
 
 FIND_PATH(GMP_INCLUDE_DIR gmp.h /include /usr/include /usr/local/include)
-#FIND_PATH(GMPXX_INCLUDE_DIR gmpxx.h /include /usr/include /usr/local/include)
+FIND_PATH(GMPXX_INCLUDE_DIR gmpxx.h /include /usr/include /usr/local/include)
 FIND_LIBRARY(GMP_LIBRARIES NAMES gmp PATH /lib /usr/lib /usr/local/lib)
 FIND_LIBRARY(GMPXX_LIBRARIES NAMES gmpxx PATH /lib /usr/lib /usr/local/lib)
 
