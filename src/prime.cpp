@@ -6,6 +6,34 @@
 #include <climits>
 
 //<xolominer>
+CBlockIndex* pindexBest;
+//
+#include <map>
+#include <string>
+std::map<std::string, std::string> mapArgs;
+#define fTestNet false
+#define fDebug false
+//
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h> //for PRIu64
+#include <boost/foreach.hpp>
+bool error(const char* msg, ...) { printf("%s\n",msg); return false; }
+int64 GetTimeMicros() { return 0; }
+int64 nHPSTimerStart = 0;
+#include <cmath>//for log
+//
+#include <stdint.h>
+/*typedef struct { //TODO...
+  // comments: BYTES <index> + <length>
+  int32_t nVersion;            // 0+4
+  uint8_t hashPrevBlock[32];       // 4+32
+  uint8_t hashMerkleRoot[32];      // 36+32
+  uint32_t  nTime;               // 68+4
+  uint32_t  nBits;               // 72+4
+  uint32_t  nNonce;              // 76+4
+  //
+  CBigNum bnPrimeChainMultiplier;
+} CBlock;*/
 #include <stdarg.h>
 std::string strprintf(const char *fmt, ...)
 {
@@ -24,6 +52,100 @@ std::string strprintf(const char *fmt, ...)
 	std::string ret(s);
 	delete[] s;
 	return ret;
+}
+/*int64
+_atoi64 (const char *nptr)
+{
+   int c;
+   int64 value;
+   int sign;
+
+   while (isspace((int)*nptr))
+        ++nptr;
+
+   c = (int)*nptr++;
+   sign = c;
+   if (c == '-' || c == '+')
+        c = (int)*nptr++;
+
+   value = 0;
+
+   while (isdigit(c))
+     {
+        value = 10 * value + (c - '0');
+        c = (int)*nptr++;
+     }
+
+   if (sign == '-')
+       return -value;
+   else
+       return value;
+}*/
+std::string GetArg(const std::string& strArg, const std::string& strDefault)
+{
+    if (mapArgs.count(strArg))
+        return mapArgs[strArg];
+    return strDefault;
+}
+int64 GetArg(const std::string& strArg, int64 nDefault)
+{
+    if (mapArgs.count(strArg))
+        return _atoi64(mapArgs[strArg].c_str());
+    return nDefault;
+}
+bool GetBoolArg(const std::string& strArg, bool fDefault)
+{
+    if (mapArgs.count(strArg))
+    {
+        if (mapArgs[strArg].empty())
+            return true;
+        return (atoi(mapArgs[strArg].c_str()) != 0);
+    }
+    return fDefault;
+}
+void ParseParameters(int argc, const char* const argv[])
+{
+    mapArgs.clear();
+    //mapMultiArgs.clear();
+    for (int i = 1; i < argc; i++)
+    {
+        std::string str(argv[i]);
+        std::string strValue;
+        size_t is_index = str.find('=');
+        if (is_index != std::string::npos)
+        {
+            strValue = str.substr(is_index+1);
+            str = str.substr(0, is_index);
+        }
+/*#ifdef WIN32
+        boost::to_lower(str);
+        if (boost::algorithm::starts_with(str, "/"))
+            str = "-" + str.substr(1);
+#endif*/
+        if (str[0] != '-')
+            break;
+
+        mapArgs[str] = strValue;
+        //mapMultiArgs[str].push_back(strValue);
+    }
+
+    // New 0.6 features:
+    /*BOOST_FOREACH(const PAIRTYPE(string,string)& entry, mapArgs)
+    {
+        string name = entry.first;
+
+        //  interpret --foo as -foo (as long as both are not set)
+        if (name.find("--") == 0)
+        {
+            std::string singleDash(name.begin()+1, name.end());
+            if (mapArgs.count(singleDash) == 0)
+                mapArgs[singleDash] = entry.second;
+            name = singleDash;
+        }
+
+        // interpret -nofoo as -foo=0 (and -nofoo=0 as -foo=1) as long as -foo not set
+        InterpretNegativeSetting(name, mapArgs);
+    }*/
 }
 //</xolominer>
 

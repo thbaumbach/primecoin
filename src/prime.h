@@ -6,40 +6,51 @@
 #define PRIMECOIN_PRIME_H
 
 //<xolominer>
-//#include "main.h"
 #include "bignum.h" //in "main.h"
-//#include "base58.h"
+//
+class CBlock
+{
+public:
+    // header
+    static const int CURRENT_VERSION=2;
+    int nVersion;
+    uint256 hashPrevBlock;
+    uint256 hashMerkleRoot;
+    unsigned int nTime;
+    unsigned int nBits;  // Primecoin: prime chain target, see prime.cpp
+    unsigned int nNonce;
+	CBigNum bnPrimeChainMultiplier;
+
+    CBlock() { //SetNull()
+        nVersion = CBlock::CURRENT_VERSION;
+        hashPrevBlock = 0;
+        hashMerkleRoot = 0;
+        nTime = 0;
+        nBits = 0;
+        nNonce = 0;
+        bnPrimeChainMultiplier = 0;
+    }
+	
+	CBlock(const CBlock &src) {
+        nVersion = src.nVersion;
+        hashPrevBlock = src.hashPrevBlock;
+        hashMerkleRoot = src.hashMerkleRoot;
+        nTime = src.nTime;
+        nBits = src.nBits;
+        nNonce = src.nNonce;
+        bnPrimeChainMultiplier = src.bnPrimeChainMultiplier;
+    }
+};
+//
+std::string GetArg(const std::string& strArg, const std::string& strDefault);
+int64 GetArg(const std::string& strArg, int64 nDefault);
+bool GetBoolArg(const std::string& strArg, bool fDefault=false);
+void ParseParameters(int argc, const char* const argv[]);
+//
 typedef int CBitcoinAddress;
 typedef int CBlockIndex;
-#define fTestNet false
-#define fDebug false
-const char* GetArg(const char* key, const char* defaultval) { return ""; }
-std::string GetArg(const char* key, const std::string& defaultval) { return ""; }
-unsigned int GetArg(const char* key, unsigned int defaultval) { return 0; }
-//unsigned int GetArg(const char* key, const char* defaultval) { return 0; }
-bool GetBoolArg(const char* key) { return false; }
-#define __STDC_FORMAT_MACROS
-#include <inttypes.h> //for PRIu64
-#include <boost/foreach.hpp>
-bool error(const char* msg, ...) { printf("%s\n",msg); return false; }
-int64 GetTimeMicros() { return 0; }
-CBlockIndex* pindexBest = NULL;
-int64 nHPSTimerStart = 0;
-#include <cmath>//for log
-
-#include <stdint.h>
-typedef struct { //TODO...
-  // comments: BYTES <index> + <length>
-  int32_t nVersion;            // 0+4
-  uint8_t hashPrevBlock[32];       // 4+32
-  uint8_t hashMerkleRoot[32];      // 36+32
-  uint32_t  nTime;               // 68+4
-  uint32_t  nBits;               // 72+4
-  uint32_t  nNonce;              // 76+4
-  //
-  CBigNum bnPrimeChainMultiplier;
-} CBlock; 
-
+//
+extern CBlockIndex* pindexBest;
 //</xolominer>
 
 #include <gmp.h>

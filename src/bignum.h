@@ -10,10 +10,10 @@
 #include <openssl/bn.h>
 
 //<xolominer>
-//#include "util.h" // for uint64
-#include "uint256.h" //in "util.h"
-typedef long long  int64;
-typedef unsigned long long  uint64;
+//#include "util.h"
+#include "uint256.h" //from "util.h"
+typedef long long  int64; //^
+typedef unsigned long long  uint64; //^
 
 #include <limits>
 #include <algorithm>
