@@ -184,9 +184,10 @@ public:
 	
 	template<CPUMODE cpumode>
 	void mineloop() {
+		primecoin_init<cpumode>();
 		unsigned int blockcnt = 0;
-		/*blockHeader_t* thrblock = NULL;
-		blockHeader_t* orgblock = NULL;
+		CBlock* thrblock = NULL;
+		CBlock* orgblock = NULL;
 		while (running) {
 			if (orgblock != _bprovider->getOriginalBlock()) {
 				orgblock = _bprovider->getOriginalBlock();
@@ -198,11 +199,11 @@ public:
 			}
 			if (thrblock != NULL) {
 				//
-				//TODO: mine<cpumode>...
+				primecoin_mine<cpumode>(thrblock,_bprovider,_id);
 				//
 			} else
-				boost::this_thread::sleep(boost::posix_time::seconds(1));
-		}*/
+				boost::this_thread::sleep(boost::posix_time::seconds(1)); //we've lost the connection or something else very bad happened
+		}
 	}
 
 	void run() {
@@ -359,7 +360,7 @@ public:
 						}
 						if (len == buf_size) {
 							_bprovider->setBlocksFromData(buf);
-							std::cout << "[MASTER] work received";
+							std::cout << "[MASTER] work received" << std::endl;
 							//TODO:
 							//if (_bprovider->getOriginalBlock() != NULL) print256("sharetarget", (uint32_t*)(_bprovider->getOriginalBlock()->targetShare));
 							//else std::cout << "<NULL>" << std::endl;

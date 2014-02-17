@@ -34,3 +34,9 @@ public:
 	virtual void submitBlock(CBlock* block) = 0;
 	virtual unsigned int GetAdjustedTimeWithOffset(unsigned int thread_id) = 0;
 };
+
+template<CPUMODE cpumode>
+void primecoin_init();
+
+template<CPUMODE cpumode>
+void primecoin_mine(CBlock* block, CBlockProvider* bp, unsigned int thread_id);

@@ -6,7 +6,25 @@
 #define PRIMECOIN_PRIME_H
 
 //<xolominer>
+bool error(const char* msg, ...);
+//
 #include "bignum.h" //in "main.h"
+//
+#include <openssl/sha.h>
+//
+template<typename T1>
+inline uint256 Hash(const T1 pbegin, const T1 pend)
+{
+    static unsigned char pblank[1];
+    uint256 hash1;
+    SHA256((pbegin == pend ? pblank : (unsigned char*)&pbegin[0]), (pend - pbegin) * sizeof(pbegin[0]), (unsigned char*)&hash1);
+    uint256 hash2;
+    SHA256((unsigned char*)&hash1, sizeof(hash1), (unsigned char*)&hash2);
+    return hash2;
+}
+//
+#define BEGIN_HASH(a)            ((char*)&(a))
+#define END_HASH(a)              ((char*)&((&(a))[1]))
 //
 class CBlock
 {
@@ -39,6 +57,11 @@ public:
         nBits = src.nBits;
         nNonce = src.nNonce;
         bnPrimeChainMultiplier = src.bnPrimeChainMultiplier;
+    }
+	
+    uint256 GetHeaderHash() const
+    {
+        return Hash(BEGIN_HASH(nVersion), END_HASH(nNonce));
     }
 };
 //

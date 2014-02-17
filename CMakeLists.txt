@@ -74,8 +74,9 @@ LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 INCLUDE_DIRECTORIES("src")
 
 SET(SRC_FILES
-	src/main_poolminer.cpp
 	src/prime.cpp
+	src/main_mining.cpp
+	src/main_poolminer.cpp		
 )
 
 ###
@@ -96,17 +97,20 @@ TARGET_LINK_LIBRARIES(xolominer ${Boost_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer ${GMP_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer ${GMPXX_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer ${OpenSSL_LIBRARIES})
-TARGET_LINK_LIBRARIES(xolominer pthread)
+TARGET_LINK_LIBRARIES(xolominer "pthread")
+
 IF(WIN32) #<MINGW>
 	TARGET_LINK_LIBRARIES(xolominer "ws2_32")
-#	TARGET_LINK_LIBRARIES(xolominer "mswsock") #needed?
-#	TARGET_LINK_LIBRARIES(xolominer "shlwapi") #needed?
-#	TARGET_LINK_LIBRARIES(xolominer "-DWIN32 -D_WINDOWS -DBOOST_THREAD_USE_LIB -DBOOST_SPIRIT_THREADSAFE -Wl,--dynamicbase -Wl,--nxcompat -static") #needed?
+	SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+	SET(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++") #TODO: boost -> libwinpthread?
+#	TARGET_LINK_LIBRARIES(xolominer "mswsock") #needed? no.
+#	TARGET_LINK_LIBRARIES(xolominer "shlwapi") #needed? no.
+#	TARGET_LINK_LIBRARIES(xolominer "-DWIN32 -D_WINDOWS -DBOOST_THREAD_USE_LIB -DBOOST_SPIRIT_THREADSAFE -Wl,--dynamicbase -Wl,--nxcompat -static") #needed? no.
 ENDIF() #</MINGW>
 
 ###
 ### COMMON FLAGS
 ###
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -pthread") # DEBUG/RELEASE flags omitted atm (for simplification)
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2") # DEBUG/RELEASE flags omitted atm (for simplification)
 #SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 #SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DGLIBC_XX_DEBUG -Wall -ggdb -g3 -fno-rounding-math -msse -O0")
