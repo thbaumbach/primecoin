@@ -186,7 +186,7 @@ public:
     mpz_class mpzChainOrigin;
     mpz_class mpzOriginMinusOne;
     mpz_class mpzOriginPlusOne;
-    mpz_class N;
+    mpz_class mpzN;
 
     // Values specific to a round
     unsigned int nBits;
