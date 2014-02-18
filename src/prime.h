@@ -8,7 +8,11 @@
 //<xolominer>
 bool error(const char* msg, ...);
 //
+#define fDebug false
+//
 #include "bignum.h" //in "main.h"
+//
+int64 GetTimeMicros();
 //
 #include <openssl/sha.h>
 //

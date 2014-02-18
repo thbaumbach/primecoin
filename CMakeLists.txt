@@ -83,7 +83,7 @@ SET(SRC_FILES
 ### EXECUTABLE
 ###
 ADD_EXECUTABLE(xolominer
-  ${SRC_FILES}
+	${SRC_FILES}
 )
 
 ###

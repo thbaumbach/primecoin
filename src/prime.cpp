@@ -12,7 +12,6 @@ CBlockIndex* pindexBest;
 #include <string>
 std::map<std::string, std::string> mapArgs;
 #define fTestNet false
-#define fDebug false
 //
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h> //for PRIu64
@@ -21,19 +20,7 @@ bool error(const char* msg, ...) { printf("%s\n",msg); return false; }
 int64 GetTimeMicros() { return 0; }
 int64 nHPSTimerStart = 0;
 #include <cmath>//for log
-//
 #include <stdint.h>
-/*typedef struct { //TODO...
-  // comments: BYTES <index> + <length>
-  int32_t nVersion;            // 0+4
-  uint8_t hashPrevBlock[32];       // 4+32
-  uint8_t hashMerkleRoot[32];      // 36+32
-  uint32_t  nTime;               // 68+4
-  uint32_t  nBits;               // 72+4
-  uint32_t  nNonce;              // 76+4
-  //
-  CBigNum bnPrimeChainMultiplier;
-} CBlock;*/
 #include <stdarg.h>
 std::string strprintf(const char *fmt, ...)
 {
@@ -53,7 +40,8 @@ std::string strprintf(const char *fmt, ...)
 	delete[] s;
 	return ret;
 }
-/*int64
+#if defined(__GNUG__) && !defined(__MINGW32__) && !defined(__MINGW64__)
+int64
 _atoi64 (const char *nptr)
 {
    int c;
@@ -80,7 +68,8 @@ _atoi64 (const char *nptr)
        return -value;
    else
        return value;
-}*/
+}
+#endif
 std::string GetArg(const std::string& strArg, const std::string& strDefault)
 {
     if (mapArgs.count(strArg))
