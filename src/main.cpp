@@ -2226,7 +2226,7 @@ CBigNum CBlockIndex::GetBlockWork() const
     //       = (TransitionRatio * FractionalDiff) / (TransitionRatio - 1 + FractionalDiff)
     uint64 nFractionalDifficulty = TargetGetFractionalDifficulty(nBits);
     unsigned int nWorkExp = 8;
-    nWorkExp += nWorkTransitionRatioLog * TargetGetLength(nBits);
+    nWorkExp += nWorkTransitionRatioLog * (TargetGetLength(nBits) - nTargetMinLength);
     CBigNum bnWork = CBigNum(1) << nWorkExp;
     bnWork *= ((uint64) nWorkTransitionRatio) * nFractionalDifficulty;
     bnWork /= (((uint64) nWorkTransitionRatio - 1) * nFractionalDifficultyMin + nFractionalDifficulty);
