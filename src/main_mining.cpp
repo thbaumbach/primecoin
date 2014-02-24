@@ -421,7 +421,6 @@ void primecoin_mine(CBlockProvider* bp, unsigned int thread_id)
             }
         }
     }
-	std::cout << "lol" << std::endl;
 }
 
 //"SPHLIB"
