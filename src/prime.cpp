@@ -222,8 +222,8 @@ void InitPrimeMiner()
     }
     if (dDonationPercentage > 0.001)
         printf("InitPrimeMiner(): Donating %2.2f%% of every block found to %s (thank you!)\n", dDonationPercentage, strDonationAddress.c_str());
-    else*/
-        printf("InitPrimeMiner(): Donations disabled\n");
+    else
+        printf("InitPrimeMiner(): Donations disabled\n");*/
 }
 
 void PrintMinerStatistics()
@@ -928,7 +928,7 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
         ProbableBiTwinChainTestFast(mpzPrimeChainOrigin, nChainLength, testParams);
     }
 
-    return (nChainLength >= nBits);
+    return (TargetGetLength(nChainLength) >= GetArg("-poolshare", 7)); //(nChainLength >= nBits);
 }
 
 // Perform Fermat test with trial division

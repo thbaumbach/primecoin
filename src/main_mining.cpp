@@ -7,12 +7,12 @@ static int64 nHPSTimerStart;
 
 int64 GetTime()
 {
-	return 0; //TODO:
+	return (boost::posix_time::second_clock::universal_time() - boost::posix_time::from_time_t(0)).total_seconds();
 }
 
 int64 GetTimeMillis()
 {
-	return 0; //TODO:
+	return (boost::posix_time::microsec_clock::universal_time() - boost::posix_time::from_time_t(0)).total_milliseconds();
 }
 
 /*int64 GetTimeMicros() //found in prime.h
@@ -22,22 +22,23 @@ int64 GetTimeMillis()
 
 int64 GetAdjustedTime()
 {
-	return 0; //TODO:
+	return GetTime();
 }
 
 template<CPUMODE cpumode>
-void primecoin_init()
+void primecoin_mine(CBlockProvider* bp, unsigned int thread_id)
 {
-    dPrimesPerSec = 0.0;
+	InitPrimeMiner();
+	
+    unsigned int blockcnt = 0;
+	CBlock* orgblock = NULL;
+	
+	dPrimesPerSec = 0.0;
     dChainsPerDay = 0.0;
     dBlocksPerDay = 0.0;
     nHPSTimerStart = 0;
-}
-
-template<CPUMODE cpumode>
-void primecoin_mine(CBlock* pblock, CBlockProvider* bp, unsigned int thread_id)
-{
-    static bool fTimerStarted = false;
+	
+	static bool fTimerStarted = false;
     bool fPrintStatsAtEnd = false;
     printf("PrimecoinMiner started\n");
 
@@ -99,6 +100,7 @@ void primecoin_mine(CBlock* pblock, CBlockProvider* bp, unsigned int thread_id)
     //printf("BitcoinMiner() : Setting initial extra nonce to %u\n", nExtraNonce);
 
     //try { loop {
+	while (running) {
         //while (vNodes.empty())
         //    MilliSleep(1000);
 
@@ -115,15 +117,27 @@ void primecoin_mine(CBlock* pblock, CBlockProvider* bp, unsigned int thread_id)
         //}
 
         //auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(reservekey));
-        /*if (!pblocktemplate.get())
-            return;
+        //if (!pblocktemplate.get())
+        //    return;
         CBlock *pblock = NULL; //&pblocktemplate->block;
-        IncrementExtraNonce(pblock, pindexPrev, nExtraNonce, true);*/
+        //IncrementExtraNonce(pblock, pindexPrev, nExtraNonce, true);*/
 
         //if (fDebug && GetBoolArg("-printmining"))
         //    printf("Running PrimecoinMiner with %"PRIszu" transactions in block (%u bytes)\n", pblock->vtx.size(),
         //       ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
 
+		if (orgblock != bp->getOriginalBlock()) {
+			orgblock = bp->getOriginalBlock();
+			blockcnt = 0;
+		}
+		pblock = bp->getBlock(thread_id, pblock == NULL ? 0 : pblock->nTime, blockcnt);
+		if (orgblock == bp->getOriginalBlock()) {
+			++blockcnt;
+		}
+		if (pblock == NULL) {
+			boost::this_thread::sleep(boost::posix_time::seconds(1)); //we've lost the connection or something else very bad happened
+			continue;
+		}
         //
         // Search
         //
@@ -161,7 +175,7 @@ void primecoin_mine(CBlock* pblock, CBlockProvider* bp, unsigned int thread_id)
             break;
         }
         if (pblock->nNonce >= 0xffff0000)
-            return; //TODO: continue;
+            continue; //TODO: continue...
         // Primecoin: primorial fixed multiplier
         mpz_class mpzPrimorial;
         mpz_class mpzFixedMultiplier;
@@ -214,21 +228,21 @@ void primecoin_mine(CBlock* pblock, CBlockProvider* bp, unsigned int thread_id)
                 //nTotalBlocksFound++;
                 //CheckWork(pblock, *pwalletMain, reservekey);
                 //SetThreadPriority(THREAD_PRIORITY_LOWEST);
-                //TODO:
+                bp->submitBlock(pblock);
             }
             nRoundTests += nTests;
             nRoundPrimesHit += nPrimesHit;
 
 #ifdef __GNUC__
             // Use atomic increment
-            /*__sync_add_and_fetch(&nPrimeCounter, nPrimesHit);
+            __sync_add_and_fetch(&nPrimeCounter, nPrimesHit);
             __sync_add_and_fetch(&nTestCounter, nTests);
             __sync_add_and_fetch(&nTotalTests, nTests);
             for (unsigned int i = 0; i < nMaxChainLength; i++)
             {
                 __sync_add_and_fetch(&vTotalChainsFound[i], vChainsFound[i]);
                 __sync_add_and_fetch(&vFoundChainCounter[i], vChainsFound[i]);
-            }*/
+            }
 #else
             nPrimeCounter += nPrimesHit;
             nTestCounter += nTests;
@@ -406,9 +420,9 @@ void primecoin_mine(CBlock* pblock, CBlockProvider* bp, unsigned int thread_id)
                 }
             }
         }
-    //}
+    }
+	std::cout << "lol" << std::endl;
 }
 
-//SPHLIB
-template void primecoin_init<SPHLIB>();
-template void primecoin_mine<SPHLIB>(CBlock* pblock, CBlockProvider* bp, unsigned int thread_id);
+//"SPHLIB"
+template void primecoin_mine<SPHLIB>(CBlockProvider* bp, unsigned int thread_id);

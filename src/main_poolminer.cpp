@@ -29,6 +29,7 @@
 * global variables, structs and extern functions
 *********************************/
 
+bool running;
 size_t thread_num_max;
 static size_t fee_to_pay;
 static size_t miner_id;
@@ -36,7 +37,6 @@ static boost::asio::ip::tcp::socket* socket_to_server; //connection socket
 static boost::posix_time::ptime t_start; //for stats
 uint64 totalShareCount; //^
 static std::map<int,unsigned long> statistics; //^
-static bool running;
 static volatile int submitting_share;
 std::string pool_username;
 std::string pool_password;
@@ -87,7 +87,7 @@ public:
 		{
 			boost::shared_lock<boost::shared_mutex> lock(_mutex_getwork);
 			if (_block == NULL) return NULL;
-			block = new CBlock(*_block);;
+			block = new CBlock(*_block);
 			//memcpy(block, _block, 80+32+8);
 		}		
 		unsigned int new_time = GetAdjustedTimeWithOffset(thread_id);
@@ -180,30 +180,6 @@ public:
 
 	CWorkerThread(CMasterThreadStub *master, unsigned int id, CBlockProviderGW *bprovider)
 		: _working_lock(NULL), _id(id), _master(master), _bprovider(bprovider), _thread(&CWorkerThread::run, this) {
-		}
-	
-	template<CPUMODE cpumode>
-	void mineloop() {
-		primecoin_init<cpumode>();
-		unsigned int blockcnt = 0;
-		CBlock* thrblock = NULL;
-		CBlock* orgblock = NULL;
-		while (running) {
-			if (orgblock != _bprovider->getOriginalBlock()) {
-				orgblock = _bprovider->getOriginalBlock();
-				blockcnt = 0;
-			}
-			thrblock = _bprovider->getBlock(_id, thrblock == NULL ? 0 : thrblock->nTime, blockcnt);
-			if (orgblock == _bprovider->getOriginalBlock()) {
-				++blockcnt;
-			}
-			if (thrblock != NULL) {
-				//
-				primecoin_mine<cpumode>(thrblock,_bprovider,_id);
-				//
-			} else
-				boost::this_thread::sleep(boost::posix_time::seconds(1)); //we've lost the connection or something else very bad happened
-		}
 	}
 
 	void run() {
@@ -223,7 +199,7 @@ public:
 		_master->wait_for_master();
 		std::cout << "[WORKER" << _id << "] GoGoGo!" << std::endl;
 		boost::this_thread::sleep(boost::posix_time::seconds(1));
-		mineloop<SPHLIB>(); //TODO: optimize the code using SPH,SSE,AVX,etc.pp. #1/2
+		primecoin_mine<SPHLIB>(_bprovider,_id); //TODO: optimize the code using SPH,SSE,AVX,etc.pp. #1/2
 		std::cout << "[WORKER" << _id << "] Bye Bye!" << std::endl;
 	}
 

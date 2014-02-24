@@ -11,6 +11,8 @@
 #include "bignum.h"
 #include "prime.h"
 
+extern bool running;
+
 struct blockHeader_t {
   // comments: BYTES <index> + <length>
   int           nVersion;            // 0+4
@@ -36,7 +38,4 @@ public:
 };
 
 template<CPUMODE cpumode>
-void primecoin_init();
-
-template<CPUMODE cpumode>
-void primecoin_mine(CBlock* block, CBlockProvider* bp, unsigned int thread_id);
+void primecoin_mine(CBlockProvider* bp, unsigned int thread_id);
