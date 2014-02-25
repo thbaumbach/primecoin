@@ -442,8 +442,10 @@ private:
 			if (it->first > 1) valid += it->second;
 		}
 		std::cout << "[STATS] " << t_end << " | ";
-		if ((t_end - t_start).total_seconds() > 0) {
-			std::cout << static_cast<double>(totalShareCount) / (static_cast<double>((t_end - t_start).total_seconds()) / 60.0) << " sh/m | ";			
+		if ((t_end - t_start).total_seconds() > 3600) {
+			std::cout << static_cast<double>(totalShareCount) / (static_cast<double>((t_end - t_start).total_seconds()) / 3600) << " sh/h | "; 
+		} else {
+			std::cout << static_cast<double>(totalShareCount) << " sh/h | ";
 		}
 		if (valid+blocks+rejects+stale > 0) {
 			std::cout << "VL: " << valid+blocks << " (" << (static_cast<double>(valid+blocks) / static_cast<double>(valid+blocks+rejects+stale)) * 100.0 << "%), ";
@@ -552,7 +554,6 @@ int main(int argc, char **argv)
 
 	socket_to_server = NULL;
 	pindexBest = NULL;
-	//pool_share_minimum = (unsigned int)GetArg("-poolshare", 7); //TODO
 	thread_num_max = GetArg("-genproclimit", 1); //TODO: what about boost's hardware_concurrency() ?
 	fee_to_pay = GetArg("-poolfee", 3);
 	miner_id = GetArg("-minerid", 0);
