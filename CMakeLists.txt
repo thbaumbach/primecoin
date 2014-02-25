@@ -98,7 +98,6 @@ TARGET_LINK_LIBRARIES(xolominer ${GMP_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer ${GMPXX_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer ${OpenSSL_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer "pthread")
-TARGET_LINK_LIBRARIES(xolominer "rt")
 
 IF(WIN32) #<MINGW>
 	TARGET_LINK_LIBRARIES(xolominer "ws2_32")
@@ -107,6 +106,8 @@ IF(WIN32) #<MINGW>
 #	TARGET_LINK_LIBRARIES(xolominer "mswsock") #needed? no.
 #	TARGET_LINK_LIBRARIES(xolominer "shlwapi") #needed? no.
 #	TARGET_LINK_LIBRARIES(xolominer "-DWIN32 -D_WINDOWS -DBOOST_THREAD_USE_LIB -DBOOST_SPIRIT_THREADSAFE -Wl,--dynamicbase -Wl,--nxcompat -static") #needed? no.
+ELSE()
+	TARGET_LINK_LIBRARIES(xolominer "rt")
 ENDIF() #</MINGW>
 
 ###
