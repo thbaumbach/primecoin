@@ -286,8 +286,8 @@ void PrintCompactStatistics(volatile unsigned int vFoundChainCounter[nMaxChainLe
 
     std::string strOutput;
     strOutput = strprintf("[CHAINSTATS]");
-    strOutput += strprintf(" %uch: %u",  pool_share_minimum, vFoundChainCounter[pool_share_minimum]);
-    for (unsigned int i = pool_share_minimum + 1; i < nMaxChainLength; i++)
+    strOutput += strprintf(" %uch: %u",  pool_share_minimum, vFoundChainCounter[pool_share_minimum - 1]);
+    for (unsigned int i = pool_share_minimum; i < nMaxChainLength; i++)
      {
          if (vFoundChainCounter[i])
              strOutput += strprintf(" %uch: %u", i + 1, vFoundChainCounter[i]);
