@@ -160,6 +160,15 @@ double EstimateCandidatePrimeProbability(unsigned int nPrimorialMultiplier, unsi
 // Esimate the prime probablity of numbers that haven't been sieved
 double EstimateNormalPrimeProbability(unsigned int nPrimorialMultiplier, unsigned int nChainPrimeNum, unsigned int nMiningProtocol);
 
+/*
+ * Use GCC-style builtin functions such as
+ * __builtin_popcountl and
+ * __sync_add_and_fetch
+ */
+#if defined(__GNUC__) || defined(__clang__)
+#    define USE_GCC_BUILTINS
+#endif
+
 #if defined(__i386__) || defined(_M_IX86) || defined(_X86_) || defined(__x86_64__) || defined(_M_X64)
 #    if !defined(__llvm__)
 #        define USE_ROTATE
@@ -456,7 +465,7 @@ public:
             return nCandidateCount;
 
         unsigned int nCandidates = 0;
-#ifdef __GNUC__
+#ifdef USE_GCC_BUILTINS
         for (unsigned int i = 0; i < nCandidatesWords; i++)
             nCandidates += __builtin_popcountl(vfCandidates[i]);
         for (unsigned int j = 0; j < nSieveExtensions; j++)

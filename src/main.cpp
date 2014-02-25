@@ -4793,7 +4793,7 @@ void static BitcoinMiner(CWallet *pwallet)
             nRoundTests += nTests;
             nRoundPrimesHit += nPrimesHit;
 
-#ifdef __GNUC__
+#ifdef USE_GCC_BUILTINS
             // Use atomic increment
             __sync_add_and_fetch(&nPrimeCounter, nPrimesHit);
             __sync_add_and_fetch(&nTestCounter, nTests);
