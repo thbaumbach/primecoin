@@ -22,6 +22,7 @@ int64 nHPSTimerStart = 0;
 #include <cmath>//for log
 #include <stdint.h>
 #include <stdarg.h>
+unsigned int pool_share_minimum = (unsigned int)GetArg("-poolshare", 7);
 std::string strprintf(const char *fmt, ...)
 {
 	char buf[500];
@@ -268,8 +269,7 @@ void PrintMinerStatistics()
 
 void PrintCompactStatistics(volatile unsigned int vFoundChainCounter[nMaxChainLength])
 {
-/*    std::string strOutput;
-    if (fLogTimestamps)
+/*    if (fLogTimestamps)
         strOutput = "chainstats ";
     else
         strOutput = strprintf("%s chainstats ", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
@@ -279,10 +279,20 @@ void PrintCompactStatistics(volatile unsigned int vFoundChainCounter[nMaxChainLe
             strOutput += strprintf(" %uch: %u", i + 1, vFoundChainCounter[i]);
     }
     printf("%s\n", strOutput.c_str());
-*/
     // Reset the statistics
     for (unsigned int i = 0; i < nMaxChainLength; i++)
         vFoundChainCounter[i] = 0;
+*/
+
+    std::string strOutput;
+    strOutput = strprintf("[CHAINSTATS]");
+    strOutput += strprintf(" %uch: %u",  pool_share_minimum, vFoundChainCounter[pool_share_minimum]);
+    for (unsigned int i = pool_share_minimum + 1; i < nMaxChainLength; i++)
+     {
+         if (vFoundChainCounter[i])
+             strOutput += strprintf(" %uch: %u", i + 1, vFoundChainCounter[i]);
+     }
+     printf("%s\n", strOutput.c_str());
 }
 
 // Get next prime number of p
@@ -928,7 +938,7 @@ static bool ProbablePrimeChainTestFast(const mpz_class& mpzPrimeChainOrigin, CPr
         ProbableBiTwinChainTestFast(mpzPrimeChainOrigin, nChainLength, testParams);
     }
 
-    return (TargetGetLength(nChainLength) >= GetArg("-poolshare", 7)); //(nChainLength >= nBits);
+    return (TargetGetLength(nChainLength) >= pool_share_minimum); //(nChainLength >= nBits);
 }
 
 // Perform Fermat test with trial division

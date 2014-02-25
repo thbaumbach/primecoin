@@ -554,7 +554,6 @@ int main(int argc, char **argv)
 
 	socket_to_server = NULL;
 	pindexBest = NULL;
-	//pool_share_minimum = (unsigned int)GetArg("-poolshare", 7); //TODO
 	thread_num_max = GetArg("-genproclimit", 1); //TODO: what about boost's hardware_concurrency() ?
 	fee_to_pay = GetArg("-poolfee", 3);
 	miner_id = GetArg("-minerid", 0);
