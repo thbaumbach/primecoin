@@ -228,7 +228,8 @@ void primecoin_mine(CBlockProvider* bp, unsigned int thread_id)
                 //nTotalBlocksFound++;
                 //CheckWork(pblock, *pwalletMain, reservekey);
                 //SetThreadPriority(THREAD_PRIORITY_LOWEST);
-                bp->submitBlock(pblock);
+                bp->submitBlock(pblock); //TODO: move this inside MineProbablePrimeChain
+				break;
             }
             nRoundTests += nTests;
             nRoundPrimesHit += nPrimesHit;

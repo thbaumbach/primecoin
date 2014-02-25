@@ -22,7 +22,7 @@ int64 nHPSTimerStart = 0;
 #include <cmath>//for log
 #include <stdint.h>
 #include <stdarg.h>
-unsigned int pool_share_minimum = (unsigned int)GetArg("-poolshare", 7);
+unsigned int pool_share_minimum; //init me
 std::string strprintf(const char *fmt, ...)
 {
 	char buf[500];
@@ -164,7 +164,7 @@ void GeneratePrimeTable()
     nL1CacheSize = (unsigned int)GetArg("-l1cachesize", nDefaultL1CacheSize);
     nL1CacheSize = std::max(std::min(nL1CacheSize, nMaxL1CacheSize), nMinL1CacheSize);
     nL1CacheSize = nL1CacheSize / 8 * 8; // make it a multiple of 8
-    printf("GeneratePrimeTable() : setting nSieveExtensions = %u, nSieveSize = %u, nSieveFilterPrimes = %u, nL1CacheSize = %u\n", nSieveExtensions, nSieveSize, nSieveFilterPrimes, nL1CacheSize);
+    printf("GeneratePrimeTable() : setting nSieveExtensions = %u, nSieveSize = %u, nSieveFilterPrimes = %u, nL1CacheSize = %u, poolShareMinimum = %u\n", nSieveExtensions, nSieveSize, nSieveFilterPrimes, nL1CacheSize, pool_share_minimum);
 
     const unsigned nPrimeTableLimit = 1000000u;
     vPrimes.clear();
@@ -269,7 +269,8 @@ void PrintMinerStatistics()
 
 void PrintCompactStatistics(volatile unsigned int vFoundChainCounter[nMaxChainLength])
 {
-/*    if (fLogTimestamps)
+/*	std::string strOutput;
+	if (fLogTimestamps)
         strOutput = "chainstats ";
     else
         strOutput = strprintf("%s chainstats ", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()).c_str());
@@ -281,18 +282,7 @@ void PrintCompactStatistics(volatile unsigned int vFoundChainCounter[nMaxChainLe
     printf("%s\n", strOutput.c_str());
     // Reset the statistics
     for (unsigned int i = 0; i < nMaxChainLength; i++)
-        vFoundChainCounter[i] = 0;
-*/
-
-    std::string strOutput;
-    strOutput = strprintf("[CHAINSTATS]");
-    strOutput += strprintf(" %uch: %u",  pool_share_minimum, vFoundChainCounter[pool_share_minimum - 1]);
-    for (unsigned int i = pool_share_minimum; i < nMaxChainLength; i++)
-     {
-         if (vFoundChainCounter[i])
-             strOutput += strprintf(" %uch: %u", i + 1, vFoundChainCounter[i]);
-     }
-     printf("%s\n", strOutput.c_str());
+        vFoundChainCounter[i] = 0;*/
 }
 
 // Get next prime number of p

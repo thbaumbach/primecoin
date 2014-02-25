@@ -552,6 +552,8 @@ int main(int argc, char **argv)
 	// init everything:
 	ParseParameters(argc, argv);
 
+	pool_share_minimum = (unsigned int)GetArg("-poolshare", 7);
+	//
 	socket_to_server = NULL;
 	pindexBest = NULL;
 	thread_num_max = GetArg("-genproclimit", 1); //TODO: what about boost's hardware_concurrency() ?
