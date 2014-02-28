@@ -1035,7 +1035,7 @@ void CSieveOfEratosthenes::ProcessMultiplier(sieve_word_t *vfComposites, const u
             for (; nVariableMultiplier < nMaxMultiplier; nVariableMultiplier += nPrime)
             {
                 vfComposites[GetWordNum(nVariableMultiplier)] |= lBitMask;
-                lBitMask = (lBitMask << nRotateBits) | (lBitMask >> (nWordBits - nRotateBits));
+                lBitMask = rotate_left(lBitMask, nRotateBits);
             }
             vMultipliers[nPrimeSeq * nSieveLayers + nLayerSeq] = nVariableMultiplier;
 #else

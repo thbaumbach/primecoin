@@ -170,8 +170,9 @@ double EstimateNormalPrimeProbability(unsigned int nPrimorialMultiplier, unsigne
 #endif
 
 #if defined(__i386__) || defined(_M_IX86) || defined(_X86_) || defined(__x86_64__) || defined(_M_X64)
-#    if !defined(__llvm__)
-#        define USE_ROTATE
+#    define USE_ROTATE
+#    if defined(__GNUC__) || defined(__clang__)
+#        define USE_ASM
 #    endif
 #endif
 
@@ -180,6 +181,22 @@ double EstimateNormalPrimeProbability(unsigned int nPrimorialMultiplier, unsigne
 typedef unsigned long long sieve_word_t;
 #else
 typedef unsigned int sieve_word_t;
+#endif
+
+#ifdef USE_ROTATE
+inline sieve_word_t rotate_left(sieve_word_t bits, unsigned int count)
+{
+#ifdef USE_ASM
+    asm("rol %1, %0"
+        : "+r" (bits)
+        : "c" ((uint8_t)count)
+        : "cc");
+    return bits;
+#else
+    // NOTE: At least LLVM doesn't always recognize this pattern
+    return (bits << count) | (bits >> (nWordBits - count));
+#endif
+}
 #endif
 
 class CPrimalityTestParams
