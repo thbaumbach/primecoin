@@ -113,7 +113,12 @@ contains(USE_IPV6, -) {
 
 contains(BITCOIN_NEED_QT_PLUGINS, 1) {
     DEFINES += BITCOIN_NEED_QT_PLUGINS
-    QTPLUGIN += qcncodecs qjpcodecs qtwcodecs qkrcodecs qtaccessiblewidgets
+    contains(BITCOIN_QT_NO_CODECS, 1) {
+        DEFINES += BITCOIN_QT_NO_CODECS
+    } else {
+        QTPLUGIN += qcncodecs qjpcodecs qtwcodecs qkrcodecs
+    }
+    QTPLUGIN += qtaccessiblewidgets
 }
 
 INCLUDEPATH += src/leveldb/include src/leveldb/helpers

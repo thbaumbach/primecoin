@@ -31,10 +31,12 @@
 #define _BITCOIN_QT_PLUGINS_INCLUDED
 #define __INSURE__
 #include <QtPlugin>
+#ifndef BITCOIN_QT_NO_CODECS
 Q_IMPORT_PLUGIN(qcncodecs)
 Q_IMPORT_PLUGIN(qjpcodecs)
 Q_IMPORT_PLUGIN(qtwcodecs)
 Q_IMPORT_PLUGIN(qkrcodecs)
+#endif
 Q_IMPORT_PLUGIN(qtaccessiblewidgets)
 #endif
 
