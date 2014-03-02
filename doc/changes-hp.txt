@@ -75,3 +75,7 @@ Changes in -hp12:
  * Implemented early support for v0.2 proposal (needs to be enabled with -miningprotocol=2).
  * David's fix for getwork.
  * Updated to Bitcoin v0.8.6 codebase.
+ * Improved the checking of BiTwin chain candidates. As a consequence, short BiTwin chains (1 or 2 primes) are now counted correctly in the mining statistics. Primes/h is now much higher due to this.
+ * The Qt application is now titled Primecoin High Performance.
+ * Fixes for Mac OS X and the Clang compiler.
+ * Revised default sieve parameters.
