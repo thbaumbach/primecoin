@@ -89,11 +89,11 @@ public:
 			if (_block == NULL) return NULL;
 			block = new CBlock(*_block);
 			//memcpy(block, _block, 80+32+8);
-		}		
+		}
 		unsigned int new_time = GetAdjustedTimeWithOffset(thread_id);
 		new_time += counter * thread_num_max;
 		block->nTime = new_time;
-		//std::cout << "[WORKER" << thread_id << "] block @ " << new_time << std::endl;
+		//std::cout << "[WORKER" << thread_id << "] block created @ " << new_time << std::endl;
 		return block;
 	}
 	
@@ -124,7 +124,7 @@ public:
 		setBlockTo(block);
 	}
 
-	void submitBlock(CBlock *block) {
+	void submitBlock(CBlock *block, unsigned int thread_id) {
 		if (socket_to_server != NULL) {
 			blockHeader_t blockraw;
 			blockraw.nVersion       = block->nVersion;
@@ -134,7 +134,7 @@ public:
 			blockraw.nBits          = block->nBits;
 			blockraw.nNonce         = block->nNonce;
 
-			//std::cout << "submit: " << block->hashMerkleRoot.ToString().c_str() << std::endl;
+			//std::cout << "submitting: " << block->hashMerkleRoot.ToString().c_str() << " from " << thread_id << std::endl;
 
 			std::vector<unsigned char> primemultiplier = block->bnPrimeChainMultiplier.getvch();
 			if (primemultiplier.size() > 47) {
@@ -149,7 +149,7 @@ public:
 			if (socket_to_server == NULL)
 				return;
 
-			std::cout << "[WORKER] share found @ " << blockraw.nTime << std::endl;
+			std::cout << "[WORKER] share found @ " << blockraw.nTime << " by thr" << thread_id << std::endl;
 			boost::system::error_code submit_error = boost::asio::error::host_not_found;
 			if (socket_to_server != NULL) boost::asio::write(*socket_to_server, boost::asio::buffer((unsigned char*)&blockraw, 128), boost::asio::transfer_all(), submit_error); //FaF
 			//if (submit_error)
@@ -424,7 +424,7 @@ private:
 
 	boost::shared_mutex _mutex_master;
 	boost::shared_mutex _mutex_working;
-
+	
 	// Provides real time stats
 	void stats_running() {
 		if (!running) return;
@@ -441,12 +441,12 @@ private:
 			if (it->first == 1) blocks = it->second;
 			if (it->first > 1) valid += it->second;
 		}
-		std::cout << "[STATS] " << t_end << " | ";
-		if ((t_end - t_start).total_seconds() > 3600) {
-			std::cout << static_cast<double>(totalShareCount) / (static_cast<double>((t_end - t_start).total_seconds()) / 3600) << " sh/h | "; 
-		} else {
-			std::cout << static_cast<double>(totalShareCount) << " sh/h | ";
-		}
+		std::cout << "[STATS] " << boost::posix_time::second_clock::local_time() << " | ";
+		for (std::map<int,unsigned long>::iterator it = statistics.begin(); it != statistics.end(); ++it)
+			if (it->first > 1)
+				std::cout << it->first << "-CH: " << it->second << " (" <<
+				  ((valid+blocks > 0) ? (static_cast<double>(it->second) / static_cast<double>(valid+blocks)) * 100.0 : 0.0) << "% | " <<
+				  ((valid+blocks > 0) ? (static_cast<double>(it->second) / (static_cast<double>((t_end - t_start).total_seconds()) / 3600.0)) : 0.0) << "/h), ";
 		if (valid+blocks+rejects+stale > 0) {
 			std::cout << "VL: " << valid+blocks << " (" << (static_cast<double>(valid+blocks) / static_cast<double>(valid+blocks+rejects+stale)) * 100.0 << "%), ";
 			std::cout << "RJ: " << rejects << " (" << (static_cast<double>(rejects) / static_cast<double>(valid+blocks+rejects+stale)) * 100.0 << "%), ";

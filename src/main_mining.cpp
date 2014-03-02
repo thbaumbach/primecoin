@@ -98,6 +98,8 @@ void primecoin_mine(CBlockProvider* bp, unsigned int thread_id)
 
     // Print the chosen extra nonce for debugging
     //printf("BitcoinMiner() : Setting initial extra nonce to %u\n", nExtraNonce);
+	
+	CBlock *pblock = NULL;
 
     //try { loop {
 	while (running) {
@@ -119,8 +121,8 @@ void primecoin_mine(CBlockProvider* bp, unsigned int thread_id)
         //auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(reservekey));
         //if (!pblocktemplate.get())
         //    return;
-        CBlock *pblock = NULL; //&pblocktemplate->block;
-        //IncrementExtraNonce(pblock, pindexPrev, nExtraNonce, true);*/
+        //CBlock *pblock = &pblocktemplate->block;
+        //IncrementExtraNonce(pblock, pindexPrev, nExtraNonce, true);
 
         //if (fDebug && GetBoolArg("-printmining"))
         //    printf("Running PrimecoinMiner with %"PRIszu" transactions in block (%u bytes)\n", pblock->vtx.size(),
@@ -131,9 +133,7 @@ void primecoin_mine(CBlockProvider* bp, unsigned int thread_id)
 			blockcnt = 0;
 		}
 		pblock = bp->getBlock(thread_id, pblock == NULL ? 0 : pblock->nTime, blockcnt);
-		if (orgblock == bp->getOriginalBlock()) {
-			++blockcnt;
-		}
+		++blockcnt;
 		if (pblock == NULL) {
 			boost::this_thread::sleep(boost::posix_time::seconds(1)); //we've lost the connection or something else very bad happened
 			continue;
@@ -228,7 +228,7 @@ void primecoin_mine(CBlockProvider* bp, unsigned int thread_id)
                 //nTotalBlocksFound++;
                 //CheckWork(pblock, *pwalletMain, reservekey);
                 //SetThreadPriority(THREAD_PRIORITY_LOWEST);
-                bp->submitBlock(pblock); //TODO: move this inside MineProbablePrimeChain
+                bp->submitBlock(pblock, thread_id); //TODO: move this inside MineProbablePrimeChain
 				break;
             }
             nRoundTests += nTests;
