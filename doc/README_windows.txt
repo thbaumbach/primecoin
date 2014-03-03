@@ -1,5 +1,5 @@
-Primecoin High Performance Version
-==================================
+Primecoin High Performance Version 12
+=====================================
 
 This is the high performance version of Sunny King's Primecoin tree.
 
