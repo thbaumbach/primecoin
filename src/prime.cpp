@@ -22,6 +22,7 @@ int64 nHPSTimerStart = 0;
 #include <cmath>//for log
 #include <stdint.h>
 #include <stdarg.h>
+bool fDebug;
 unsigned int pool_share_minimum; //init me
 std::string strprintf(const char *fmt, ...)
 {
@@ -1087,7 +1088,8 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             CBigNum bnPrimeChainMultiplier;
             bnPrimeChainMultiplier.SetHex(mpzPrimeChainMultiplier.get_str(16));
             block.bnPrimeChainMultiplier = bnPrimeChainMultiplier;
-            printf("nTriedMultiplier = %u\n", nTriedMultiplier); // Debugging
+			if (fDebug)
+				printf("nTriedMultiplier = %u\n", nTriedMultiplier); // Debugging
             //printf("Probable prime chain found for block=%s!!\n  Target: %s\n  Chain: %s\n", block.GetHash().GetHex().c_str(),
 			//	TargetToString(block.nBits).c_str(), GetPrimeChainName(nCandidateType, nChainLength).c_str());
             return true;

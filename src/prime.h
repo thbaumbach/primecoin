@@ -6,11 +6,10 @@
 #define PRIMECOIN_PRIME_H
 
 //<xolominer>
+extern bool fDebug;
 extern unsigned int pool_share_minimum;
 //
 bool error(const char* msg, ...);
-//
-#define fDebug false
 //
 #include "bignum.h" //in "main.h"
 //

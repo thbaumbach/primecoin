@@ -550,6 +550,7 @@ int main(int argc, char **argv)
 	// init everything:
 	ParseParameters(argc, argv);
 
+	fDebug = GetBoolArg("-debug");
 	pool_share_minimum = (unsigned int)GetArg("-poolshare", 7);
 	//
 	socket_to_server = NULL;
@@ -585,9 +586,6 @@ int main(int argc, char **argv)
 		pool_password = ss.str();
 	}
 	std::cout << pool_username << std::endl;
-
-	//TODO: fPrintToConsole = true; // always on
-	//TODO: fDebug          = GetBoolArg("-debug");
 
 	pindexBest = new CBlockIndex();
 
