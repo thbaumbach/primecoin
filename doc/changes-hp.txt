@@ -79,3 +79,4 @@ Changes in -hp12:
  * The Qt application is now titled Primecoin High Performance.
  * Fixes for Mac OS X and the Clang compiler.
  * Revised default sieve parameters.
+ * Added an automatic donation feature when a new block is found. The -donationpercentage allows a percentage of the block reward to be donated to an address. E.g. passing the command-line parameter -donationpercentage=1.5 will donate 1.5% of every block to the developer. Alternatively, this value can be set in primecoin.conf. Also, the default address can be changed using -donationaddress.
