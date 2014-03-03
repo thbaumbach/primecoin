@@ -78,10 +78,10 @@ public:
 
 	virtual ~CBlockProviderGW() { /* TODO */ }
 
-	virtual unsigned int GetAdjustedTimeWithOffset(unsigned int thread_id) {
-		return nTime_offset + ((((unsigned int)time(NULL) + thread_num_max) / thread_num_max) * thread_num_max) + thread_id;
+	virtual unsigned int GetAdjustedTimeWithOffset(unsigned int thread_id, unsigned int counter) {
+		return nTime_offset + ((((unsigned int)time(NULL) + thread_num_max) / thread_num_max) * thread_num_max) + thread_id + counter * thread_num_max;
 	}
-
+	
 	virtual CBlock* getBlock(unsigned int thread_id, unsigned int last_time, unsigned int counter) {
 		CBlock* block = NULL;
 		{
@@ -90,9 +90,7 @@ public:
 			block = new CBlock(*_block);
 			//memcpy(block, _block, 80+32+8);
 		}
-		unsigned int new_time = GetAdjustedTimeWithOffset(thread_id);
-		new_time += counter * thread_num_max;
-		block->nTime = new_time;
+		block->nTime = GetAdjustedTimeWithOffset(thread_id, counter);
 		//std::cout << "[WORKER" << thread_id << "] block created @ " << new_time << std::endl;
 		return block;
 	}

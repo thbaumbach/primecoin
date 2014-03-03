@@ -15,16 +15,6 @@ int64 GetTimeMillis()
 	return (boost::posix_time::microsec_clock::universal_time() - boost::posix_time::from_time_t(0)).total_milliseconds();
 }
 
-/*int64 GetTimeMicros() //found in prime.h
-{
-	return 0;
-}*/
-
-int64 GetAdjustedTime()
-{
-	return GetTime();
-}
-
 template<CPUMODE cpumode>
 void primecoin_mine(CBlockProvider* bp, unsigned int thread_id)
 {
@@ -234,7 +224,7 @@ void primecoin_mine(CBlockProvider* bp, unsigned int thread_id)
             nRoundTests += nTests;
             nRoundPrimesHit += nPrimesHit;
 
-#ifdef __GNUC__
+#ifdef USE_GCC_BUILTINS
             // Use atomic increment
             __sync_add_and_fetch(&nPrimeCounter, nPrimesHit);
             __sync_add_and_fetch(&nTestCounter, nTests);
@@ -374,7 +364,7 @@ void primecoin_mine(CBlockProvider* bp, unsigned int thread_id)
                 nRoundPrimesHit = 0;
 
                 // Primecoin: update time and nonce
-                pblock->nTime = std::max(pblock->nTime, (unsigned int) GetAdjustedTime()); //TODO:
+                pblock->nTime = std::max(pblock->nTime, bp->GetAdjustedTimeWithOffset(thread_id, blockcnt));
                 for(;;)
                 {
                     pblock->nNonce++;
