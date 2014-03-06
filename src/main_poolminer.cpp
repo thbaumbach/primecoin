@@ -4,7 +4,6 @@
 //===
 
 #include <iostream>
-#include <fstream>
 #include <cstdio>
 #include <cstdlib>
 #include <csignal>
@@ -23,7 +22,7 @@
 
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 9
-#define VERSION_EXT "RC1 <experimental>"
+#define VERSION_EXT "RC2 <experimental>"
 
 /*********************************
 * global variables, structs and extern functions
@@ -183,16 +182,28 @@ public:
 	void run() {
 		std::cout << "[WORKER" << _id << "] Hello, World!" << std::endl;
 		{
-			//<set_low_priority>
+			//<set_priority>
+			int priority = -1;
 #if defined(__GNUG__) && !defined(__MINGW32__) && !defined(__MINGW64__)
 			pid_t tid = (pid_t) syscall (SYS_gettid);
-			setpriority(PRIO_PROCESS, tid, 1);
+			switch (GetArg("-threadprio", 0)) {
+				case 1: priority = 0; break;
+				case 2: priority = -1; break;
+				default: priority = 1;
+			}
+			setpriority(PRIO_PROCESS, tid, priority);
 #elif defined(__MINGW32__) || defined(__MINGW64__)
 			HANDLE th = _thread.native_handle();
-			if (!SetThreadPriority(th, THREAD_PRIORITY_LOWEST))
+			
+			switch (GetArg("-threadprio", 0)) {
+				case 1: priority = THREAD_PRIORITY_NORMAL; break;
+				case 2: priority = THREAD_PRIORITY_HIGHEST; break;
+				default: priority = THREAD_PRIORITY_LOWEST;
+			}
+			if (!SetThreadPriority(th, priority))
 				std::cerr << "failed to set thread priority to low" << std::endl;
 #endif
-			//</set_low_priority>
+			//</set_priority>
 		}
 		_master->wait_for_master();
 		std::cout << "[WORKER" << _id << "] GoGoGo!" << std::endl;
@@ -542,12 +553,13 @@ int main(int argc, char **argv)
 	if (atexit_res != 0)
 		std::cerr << "atexit registration failed, shutdown will be (more) dirty!!" << std::endl;
 		
-	if (argc < 2) {
+	/*if (argc < 2) {
 		std::cerr << "usage: " << argv[0] << " -poolfee=<fee-in-%> -poolip=<ip> -poolport=<port> -pooluser=<user> -poolpassword=<password>" << std::endl;
 		return EXIT_FAILURE;
-	}
+	}*/
 
 	// init everything:
+	ParseConfigFile("xolominer.cfg");
 	ParseParameters(argc, argv);
 
 	fDebug = GetBoolArg("-debug");

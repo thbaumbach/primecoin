@@ -74,6 +74,7 @@ std::string GetArg(const std::string& strArg, const std::string& strDefault);
 int64 GetArg(const std::string& strArg, int64 nDefault);
 bool GetBoolArg(const std::string& strArg, bool fDefault=false);
 void ParseParameters(int argc, const char* const argv[]);
+void ParseConfigFile(const char* file_name);
 //
 typedef int CBitcoinAddress;
 typedef int CBlockIndex;

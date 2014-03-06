@@ -10,7 +10,7 @@ CBlockIndex* pindexBest;
 //
 #include <map>
 #include <string>
-std::map<std::string, std::string> mapArgs;
+std::map<std::string,std::string> mapArgs;
 #define fTestNet false
 //
 #define __STDC_FORMAT_MACROS
@@ -96,7 +96,7 @@ bool GetBoolArg(const std::string& strArg, bool fDefault)
 }
 void ParseParameters(int argc, const char* const argv[])
 {
-    mapArgs.clear();
+    //mapArgs.clear();
     //mapMultiArgs.clear();
     for (int i = 1; i < argc; i++)
     {
@@ -137,6 +137,22 @@ void ParseParameters(int argc, const char* const argv[])
         // interpret -nofoo as -foo=0 (and -nofoo=0 as -foo=1) as long as -foo not set
         InterpretNegativeSetting(name, mapArgs);
     }*/
+}
+#include <fstream>
+void ParseConfigFile(const char* file_name) {
+	std::ifstream cfg_file(file_name);
+	if (!cfg_file) return;
+	std::string cfg_line;
+	while (std::getline(cfg_file,cfg_line)) {
+		std::istringstream cfg_line_is(cfg_line);
+		std::string key;
+		if (std::getline(cfg_line_is,key,'=')) {
+			std::string val;
+			if (std::getline(cfg_line_is,val)) {
+				mapArgs[std::string("-")+key] = val;
+			}
+		}
+	}
 }
 //</xolominer>
 
