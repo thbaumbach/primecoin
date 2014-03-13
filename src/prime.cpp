@@ -1106,8 +1106,8 @@ bool MineProbablePrimeChain(CBlock& block, mpz_class& mpzFixedMultiplier, bool& 
             block.bnPrimeChainMultiplier = bnPrimeChainMultiplier;
 			if (fDebug && GetBoolArg("-printmining"))
 				printf("nTriedMultiplier = %u\n", nTriedMultiplier); // Debugging
-            //printf("Probable prime chain found for block=%s!!\n  Target: %s\n  Chain: %s\n", block.GetHash().GetHex().c_str(),
-			//	TargetToString(block.nBits).c_str(), GetPrimeChainName(nCandidateType, nChainLength).c_str());
+            printf("Probable prime chain found!!\n  Target: %s\n  Chain: %s\n", //block.GetHash().GetHex().c_str(),
+				TargetToString(block.nBits).c_str(), GetPrimeChainName(nCandidateType, nChainLength).c_str());
             return true;
         }
     }

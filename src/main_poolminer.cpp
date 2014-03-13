@@ -22,7 +22,7 @@
 
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 9
-#define VERSION_EXT "RC2 <experimental>"
+#define VERSION_EXT "RC3 <experimental>"
 
 /*********************************
 * global variables, structs and extern functions
