@@ -9,7 +9,19 @@
 #include <vector>
 #include <openssl/bn.h>
 
-#include "util.h" // for uint64
+//<xolominer>
+//#include "util.h"
+#include "uint256.h" //from "util.h"
+typedef long long  int64; //^
+typedef unsigned long long  uint64; //^
+
+#include <limits>
+#include <algorithm>
+
+static const int PROTOCOL_VERSION = 70001; //from "version.h"
+
+#include "serialize.h"
+//</xolominer>
 
 /** Errors thrown by the bignum class */
 class bignum_error : public std::runtime_error

@@ -1,0 +1,118 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0)
+
+###
+### FIND ADDITIONAL CMAKE MODULES
+###
+SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+###
+### PROJECT
+###
+PROJECT(xolominer)
+
+###
+### OPENSSL
+###
+FIND_PACKAGE(OpenSSL REQUIRED)
+IF(OPENSSL_FOUND)
+	MESSAGE("OpenSSL information: found")
+	MESSAGE("  OpenSSL_INCLUDE_DIR: ${OpenSSL_INCLUDE_DIR}") 
+	MESSAGE("  OpenSSL_LIBRARIES: ${OpenSSL_LIBRARIES}") 
+	INCLUDE_DIRECTORIES(${OpenSSL_INCLUDE_DIR})
+ELSE(OPENSSL_FOUND)
+	MESSAGE(FATAL_ERROR "OpenSSL -NOT- found" )
+ENDIF(OPENSSL_FOUND)
+
+###
+### LIBGMP
+###
+FIND_PACKAGE(GMP REQUIRED)
+IF(GMP_FOUND)
+	MESSAGE("libGMP information: found")
+	MESSAGE("  GMP_INCLUDE_DIR: ${GMP_INCLUDE_DIR}") 
+	MESSAGE("  GMP(XX)_LIBRARIES: ${GMP_LIBRARIES} (${GMPXX_LIBRARIES})") 
+	INCLUDE_DIRECTORIES(${GMP_INCLUDE_DIR})
+ELSE()
+	MESSAGE(FATAL_ERROR "libGMP -NOT- found" )
+ENDIF()
+
+###
+### BOOST
+###
+SET(Boost_USE_MULTITHREADED ON)
+SET(Boost_USE_STATIC_LIBS ON)
+#SET(Boost_COMPILER "-gcc43") #set this to the compiler suffix used by Boost if FindBoost has problems
+#SET(Boost_ADDITIONAL_VERSIONS "0.99" "0.99.0" "1.78" "1.78.0") #for future boost releases
+
+FIND_PACKAGE(Boost 1.43.0 COMPONENTS system thread timer chrono REQUIRED)
+
+MESSAGE("Boost information: found ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}") 
+MESSAGE("  Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}") 
+MESSAGE("  Boost_LIBRARY_DIRS: ${Boost_LIBRARY_DIRS}") 
+MESSAGE("  Boost_LIBRARIES: ${Boost_LIBRARIES}") 
+
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
+
+###
+### YASM (not needed atm)
+###
+#IF(APPLE)
+#    set(CMAKE_ASM_FLAGS "-f macho64 --prefix=_") #TODO: 32 BIT?
+#ELSE(UNIX)
+#    SET(CMAKE_ASM_FLAGS "-f elf64") #TODO: 32 BIT?
+#ELSE()
+#    SET(CMAKE_ASM_FLAGS "-f win64") #TODO: 32 BIT?
+#ENDIF()
+#
+#SET(CMAKE_ASM_COMPILER "yasm")
+#ENABLE_LANGUAGE(ASM)
+
+###
+### GENERAL SOURCE STUFF
+###
+INCLUDE_DIRECTORIES("src")
+
+SET(SRC_FILES
+	src/prime.cpp
+	src/main_mining.cpp
+	src/main_poolminer.cpp		
+)
+
+###
+### EXECUTABLE
+###
+ADD_EXECUTABLE(xolominer
+	${SRC_FILES}
+)
+
+###
+### LIBRARIES
+###
+#TARGET_LINK_LIBRARIES(xolominer ${Boost_SYSTEM_LIBRARY})
+#TARGET_LINK_LIBRARIES(xolominer ${Boost_THREAD_LIBRARY})
+#TARGET_LINK_LIBRARIES(xolominer ${Boost_TIMER_LIBRARY})
+#TARGET_LINK_LIBRARIES(xolominer ${Boost_CHRONO_LIBRARY})
+TARGET_LINK_LIBRARIES(xolominer ${Boost_LIBRARIES})
+TARGET_LINK_LIBRARIES(xolominer ${GMP_LIBRARIES})
+TARGET_LINK_LIBRARIES(xolominer ${GMPXX_LIBRARIES})
+TARGET_LINK_LIBRARIES(xolominer ${OpenSSL_LIBRARIES})
+TARGET_LINK_LIBRARIES(xolominer "pthread")
+
+IF(WIN32) #<MINGW>
+	TARGET_LINK_LIBRARIES(xolominer "ws2_32")
+	SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+	SET(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++") #TODO: boost -> libwinpthread?
+#	TARGET_LINK_LIBRARIES(xolominer "mswsock") #needed? no.
+#	TARGET_LINK_LIBRARIES(xolominer "shlwapi") #needed? no.
+#	TARGET_LINK_LIBRARIES(xolominer "-DWIN32 -D_WINDOWS -DBOOST_THREAD_USE_LIB -DBOOST_SPIRIT_THREADSAFE -Wl,--dynamicbase -Wl,--nxcompat -static") #needed? no.
+ELSE(UNIX)
+	TARGET_LINK_LIBRARIES(xolominer "rt") # -NOT- APPLE !?!?
+ENDIF()
+
+###
+### COMMON FLAGS
+###
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3") # DEBUG/RELEASE flags omitted atm (for simplification)
+#SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
+#SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DGLIBC_XX_DEBUG -Wall -ggdb -g3 -fno-rounding-math -msse -O0")

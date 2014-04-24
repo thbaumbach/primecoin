@@ -6,10 +6,7 @@ based on mikaelh's high performance version of Sunny King's Primecoin tree.
 
 Features:
 - pooled mining client
-- getwork-protocol (with longpoll-support)
-- code integration into original client
-
-See forked project for more information.
+- user, password, miner-id, pool & developer fee integration
 
 Usage
 -----
@@ -20,33 +17,39 @@ Usage
  * `-poolpassword=[pass]` Pool worker password
  * `-poolip=[host]` Pool mining ip or host address
  * `-poolport=[port]` Pool mining port
- * `-poolshare=[chainlength]` Minimum chain length of submitted shares, default 7
- * `-genproclimit=[threads]` Number of CPU-Threads to use (1-32)
- * `-minerid=[0-65000]` A free-to-choose worker ID
- * `-poolfee=[1-100]` Set pool fee Ã­n percent, if supported by pool
+ * `-genproclimit=[threads]` Number of CPU-Threads to use
+ * `-poolshare=[chainlength]` Minimum chain length of submitted shares, if supported by pool, default 7
+ * `-minerid=[0-65000]` A free-to-choose worker ID, if supported by pool, for statistical purpose
+ * `-poolfee=[1-100]` Set pool fee ín percent, if supported by pool, default 2
+ * `-devfeeid=[id]` Set the developer fee ID, if supported by pool, default 0
 
 Building xolominer
 ==================
 
-See [Build Notes](doc/README.md) for detailled information on compiling.
+Use CMake to build. Usually: mkdir bin && cd bin && cmake .. && make
 
 Dependencies:
  - libssl (SSL Support)
- - libdb4.8 (Berkeley DB)
  - libboost (Boost C++ Library)
  - libgmp (GNU Multiprecision)
- - miniupnpc (UPnP Support)
 
+MinGW/Cygwin hint
+-----------------
+
+cmake -G "MSYS Makefiles" -DBOOST_ROOT=<BOOST_ROOT_DIR> -DOpenSSL_ROOT_DIR=<OPENSSL_ROOT_DIR> ..
+ 
 Primecoin integration/staging tree
 ==================================
 
 http://primecoin.org
 
-Copyright (c) 2013 Primecoin Developers
+Copyright (c) 2013-2014 Xolominer Developers
 
-Copyright (c) 2009-2013 Bitcoin Developers
+Copyright (c) 2013-2014 Primecoin Developers
 
-Copyright (c) 2011-2013 PPCoin Developers
+Copyright (c) 2009-2014 Bitcoin Developers
+
+Copyright (c) 2011-2014 PPCoin Developers
 
 What is Primecoin?
 ------------------
@@ -67,58 +70,5 @@ the Primecoin client sofware, see http://primecoin.org.
 License
 -------
 
-Primecoin is released under conditional MIT license. See  COPYING` for more
+Primecoin's mining code is released under conditional MIT license. See  COPYING` for more
 information.
-
-Development process
--------------------
-
-Developers work in their own trees, then submit pull requests when they think
-their feature or bug fix is ready.
-
-If it is a simple/trivial/non-controversial change, then one of the Bitcoin
-development team members simply pulls it.
-
-If it is a *more complicated or potentially controversial* change, then the patch
-submitter will be asked to start a discussion (if they haven't already) on the
-ppcoin/primecoin forum (http://ppcointalk.org).
-
-The patch will be accepted if there is broad consensus that it is a good thing.
-Developers should expect to rework and resubmit patches if the code doesn't
-match the project's coding conventions (see `doc/coding.txt`) or are
-controversial.
-
-The `master` branch is regularly built and tested, but is not guaranteed to be
-completely stable. [Tags](https://github.com/primecoin/primecoin/tags) are
-created regularly to indicate new official, stable release versions of
-Primecoin.
-
-Testing
--------
-
-Testing and code review is the bottleneck for development; we get more pull
-requests than we can review and test. Please be patient and help out, and
-remember this is a security-critical project where any mistake might cost people
-lots of money.
-
-### Automated Testing
-
-Developers are strongly encouraged to write unit tests for new code, and to
-submit new unit tests for old code.
-
-Unit tests for the core code are in `src/test/`. To compile and run them:
-
-    cd src; make -f makefile.unix test
-
-Unit tests for the GUI code are in `src/qt/test/`. To compile and run them:
-
-    qmake BITCOIN_QT_TEST=1 -o Makefile.test bitcoin-qt.pro
-    make -f Makefile.test
-    ./bitcoin-qt_test
-
-### Manual Quality Assurance (QA) Testing
-
-Large changes should have a test plan, and should be tested by somebody other
-than the developer who wrote the code.
-
-See https://github.com/bitcoin/QA/ for how to create a test plan.
