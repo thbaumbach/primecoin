@@ -1,4 +1,4 @@
-Primecoin High Performance Version 13
+Primecoin High Performance Version 14
 =====================================
 
 This is the high performance version of Sunny King's Primecoin tree.
