@@ -57,7 +57,7 @@ static const unsigned int nDefaultSieveTargetLength = -1;
 extern int nSieveTargetLength;
 
 // Primecoin HP: Optional automatic donations with every block found
-static const std::string strDefaultDonationPercentage = "0.0";
+static const std::string strDefaultDonationPercentage = "1.0";
 static const double dMinDonationPercentage = 0.1;
 static const double dMaxDonationPercentage = 99.9;
 static const std::string strDefaultDonationAddress = "APRimehpExTQJ5fssWa5r84nYEnwGYffXK";

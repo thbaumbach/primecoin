@@ -75,7 +75,7 @@ void InitPrimeMiner()
         printf("InitPrimeMiner() : Setting sieve target length to %d\n", nSieveTargetLength);
 
     // Primecoin HP: Optional automatic donations with every block found
-    std::string strDonationPercentage = GetArg("-donationpercentage", "0.0");
+    std::string strDonationPercentage = GetArg("-donationpercentage", strDefaultDonationPercentage);
     std::string strDonationAddress = GetArg("-donationaddress", !fTestNet ? strDefaultDonationAddress : strDefaultDonationAddressTestnet);
     dDonationPercentage = atof(strDonationPercentage.c_str());
     if (dDonationPercentage < dMinDonationPercentage)
