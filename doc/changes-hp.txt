@@ -8,6 +8,10 @@ Changes in -hp14:
  * Added compile-time support for using BMI2 instructions on Haswell.
  * Added compile-time support for SSE2 and AVX2 bitwise operations.
  * New extended sieve algorithm similar to rdebourbon's beta4 code.
+ * New default values for the tuning parameters:
+   . sievefilterprimes defaults to 14000 (up from 7849)
+   . sievesize defaults to 1376256 (up from 917504)
+   . sieveextensions defaults to 10 (up from 9)
  * Lots of other minor improvements.
 
 Changes in -hp13:
