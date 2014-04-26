@@ -1,6 +1,15 @@
 Primecoin High Performance Changelog
 ====================================
 
+Changes in -hp14:
+ * Huge CPU mining speedup. Up to 73% higher chains/day on Intel's Haswell.
+ * Developer fee is now 1% (-donationpercentage defaults to 1.0).
+ * Sieve now uses the BTS instruction (same as RapidPrime miner).
+ * Added compile-time support for using BMI2 instructions on Haswell.
+ * Added compile-time support for SSE2 and AVX2 bitwise operations.
+ * New extended sieve algorithm similar to rdebourbon's beta4 code.
+ * Lots of other minor improvements.
+
 Changes in -hp13:
  * Binaries compiled with OpenSSL 1.0.1g which addresses the Heartbleed vulnerability
  * Faster blockchain download
