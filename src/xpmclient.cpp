@@ -732,7 +732,7 @@ XPMClient::~XPMClient() {
 }
 
 
-bool XPMClient::Initialize(/*Configuration* cfg*/) {
+bool XPMClient::Initialize(size_t gpu_num_to_use /*Configuration* cfg*/) {
 	
 	{
 		int np = sizeof(gPrimes)/sizeof(unsigned);
@@ -832,6 +832,14 @@ bool XPMClient::Initialize(/*Configuration* cfg*/) {
 		}*/
 	}
 	
+	if(gpu_num_to_use >= mNumDevices){
+		printf("ERROR: wrong GPU ID used\n");
+		return false;
+	}
+	cl_device_id gpu = devices[gpu_num_to_use];	
+	printf("Using device #%d\n", (unsigned)gpu_num_to_use);
+	
+	/*
 	std::vector<cl_device_id> gpus;
 	for(unsigned i = 0; i < mNumDevices; ++i)
 		if(usegpu[i]){
@@ -844,20 +852,21 @@ bool XPMClient::Initialize(/*Configuration* cfg*/) {
 		}
 	
 	if(!gpus.size()){
-		printf("EXIT: config.txt says not to use any devices!?\n");
+		printf("EXIT: config says not to use any devices!?\n");
 		return false;
 	};
-	
+	*/
 	{
 		cl_context_properties props[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 		cl_int error;
-		gContext = clCreateContext(props, gpus.size(), &gpus[0], 0, 0, &error);
+		gContext = clCreateContext(props, 1 /*gpus.size()*/, &gpu/*&gpus[0]*/, 0, 0, &error);
 		OCLR(error, false);
 	}
 	
 	// compile
-	std::ifstream testfile("kernel.bin");
-	if(!testfile){
+	//std::ifstream testfile("kernel.bin");
+	//if(!testfile)
+	{
 		
 		printf("Compiling ...\n");
 		std::string sourcefile;
@@ -887,11 +896,26 @@ bool XPMClient::Initialize(/*Configuration* cfg*/) {
 		const char* sources[] = { sourcefile.c_str(), 0 };
 		gProgram = clCreateProgramWithSource(gContext, 1, sources, 0, &error);
 		OCLR(error, false);
-		OCLR(clBuildProgram(gProgram, gpus.size(), &gpus[0], 0, 0, 0), false);
+		OCLR(clBuildProgram(gProgram, 1 /*gpus.size()*/, &gpu/*&gpus[0]*/, 0, 0, 0), false);
 		
-		size_t binsizes[10];
-		OCLR(clGetProgramInfo(gProgram, CL_PROGRAM_BINARY_SIZES, sizeof(binsizes), binsizes, 0), false);
-		size_t binsize = binsizes[0];
+		/*{ //DEBUG:
+			//check status
+			cl_build_status status;
+			clGetProgramBuildInfo(gProgram, gpus[0], CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &status, NULL);
+			
+			// check build log
+			size_t logSize;
+			clGetProgramBuildInfo(gProgram, gpus[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &logSize);
+			char* programLog = new char[logSize+1];
+			clGetProgramBuildInfo(gProgram, gpus[0], CL_PROGRAM_BUILD_LOG, logSize+1, programLog, NULL);
+			printf("Build failed; error=%d, status=%d, programLog:\n\n%s", error, status, programLog);
+			delete[] programLog;
+		}*/
+		
+		size_t binsize;
+		//size_t binsizes[10];
+		OCLR(clGetProgramInfo(gProgram, CL_PROGRAM_BINARY_SIZES, sizeof(binsize)/*binsizes*/ , &binsize/*binsizes*/, 0), false);
+		//size_t binsize = binsizes[0];
 		if(!binsize){
 			printf("No binary available!\n");
 			return false;
@@ -901,7 +925,7 @@ bool XPMClient::Initialize(/*Configuration* cfg*/) {
 		char* binary = new char[binsize+1];
 		unsigned char* binaries[] = { (unsigned char*)binary };
 		OCLR(clGetProgramInfo(gProgram, CL_PROGRAM_BINARIES, sizeof(binaries), binaries, 0), false);
-		{
+		/*{
 			std::ofstream bin("kernel.bin", std::ofstream::binary | std::ofstream::trunc);
 			bin.write(binary, binsize);
 			bin.close();
@@ -918,7 +942,7 @@ bool XPMClient::Initialize(/*Configuration* cfg*/) {
 	}
 	
 	bfile.seekg(0, bfile.end);
-	int binsize = bfile.tellg();
+	size_t binsize = bfile.tellg();
 	bfile.seekg(0, bfile.beg);
 	if(!binsize){
 		printf("ERROR: kernel.bin empty\n");
@@ -928,23 +952,33 @@ bool XPMClient::Initialize(/*Configuration* cfg*/) {
 	std::vector<char> binary(binsize+1);
 	bfile.read(&binary[0], binsize);
 	bfile.close();
-	//printf("binsize = %d bytes\n", binsize);
+	printf("binsize = %d bytes\n", (unsigned)binsize);
 	
-	std::vector<size_t> binsizes(gpus.size(), binsize);
-	std::vector<cl_int> binstatus(gpus.size());
-	std::vector<const unsigned char*> binaries(gpus.size(), (const unsigned char*)&binary[0]);
+	//std::vector<size_t> binsizes(gpus.size(), binsize);
+	//std::vector<cl_int> binstatus(gpus.size());
+	//std::vector<const unsigned char*> binaries(gpus.size(), (const unsigned char*)&binary[0]);
+	//cl_int error;
+	//gProgram = clCreateProgramWithBinary(gContext, gpus.size(), &gpus[0], &binsizes[0], &binaries[0], &binstatus[0], &error);
+	//OCLR(error, false);
+	//OCLR(clBuildProgram(gProgram, gpus.size(), &gpus[0], 0, 0, 0), false);
+	
+	
 	cl_int error;
-	gProgram = clCreateProgramWithBinary(gContext, gpus.size(), &gpus[0], &binsizes[0], &binaries[0], &binstatus[0], &error);
+	cl_int binstatus;
+	const unsigned char* binaries = (const unsigned char*)&binary[0];
+	gProgram = clCreateProgramWithBinary(gContext, 1, &gpu, &binsize, &binaries, &binstatus, &error);
 	OCLR(error, false);
-	OCLR(clBuildProgram(gProgram, gpus.size(), &gpus[0], 0, 0, 0), false);
+	OCLR(clBuildProgram(gProgram, 1, &gpu, 0, 0, 0), false);
 	
-	for(unsigned i = 0; i < gpus.size(); ++i){
-		
+	for(unsigned i = 0; i < 1; ++i){ //gpus.size(); ++i){
+		*/
+		unsigned i = 0;
 		std::pair<PrimeMiner*,void*> worker;
-		if(binstatus[i] == CL_SUCCESS){
+		//if(binstatus[i] == CL_SUCCESS)
+		{
 			
-			PrimeMiner* miner = new PrimeMiner(i, gpus.size(), hashprim[i], primorial[i], depth);
-			miner->Initialize(gpus[i]);
+			PrimeMiner* miner = new PrimeMiner(i, 1/*gpus.size()*/, hashprim[i], primorial[i], depth);
+			miner->Initialize(gpu /*gpus[i]*/);
 			/*
 			void* pipe = zthread_fork(mCtx, &PrimeMiner::InvokeMining, miner);
 			zsocket_wait(pipe);
@@ -954,13 +988,13 @@ bool XPMClient::Initialize(/*Configuration* cfg*/) {
 			*/
 			worker.first = miner;
 			worker.second = NULL;
-		}else{
+		} /*else{
 			
 			printf("GPU %d: failed to load kernel\n", i);
 			worker.first = 0;
 			worker.second = 0;
 			
-		}
+		}*/
 		
 		mWorkers.push_back(worker);
 		

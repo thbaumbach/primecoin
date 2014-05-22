@@ -13,16 +13,25 @@ Features:
 - pooled mining client
 - user, password, miner-id, pool & developer fee integration
 
+Known Issues (TODO):
+--------------------
+
+ * miner is _currently_ only using one device per instance, use `-device=[device-id]`
+ * OpenCL code is compiled at runtime
+ * clean-up code is not complete; (most probably) crashes when exiting
+ * mining / GPU settings are fixed
+ * source code is messy
+
 Usage
 -----
 
 `primeminer [-options]`
 
+ * `-device=[device-id]` THIS VERSION IS _CURRENTLY_ USING ONLY ONE GPU DEVICE, run multiple instances on multi-GPU systems
  * `-pooluser=[user]` Pool worker user name
  * `-poolpassword=[pass]` Pool worker password
  * `-poolip=[host]` Pool mining ip or host address
  * `-poolport=[port]` Pool mining port
- * THIS VERSION IS _CURRENTLY_ USING ONLY ONE THREAD AND THE FIRST GPU
  * `-poolshare=[chainlength]` Minimum chain length of submitted shares, if supported by pool, default 7
  * `-minerid=[0-65000]` A free-to-choose worker ID, if supported by pool, for statistical purpose
  * `-poolfee=[1-100]` Set pool fee ín percent, if supported by pool, default 2

@@ -248,6 +248,6 @@ ENDIF()
 ### COMMON FLAGS
 ###
 #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGLIBC_XX_DEBUG -Wall -ggdb -g3 -fno-rounding-math -msse -O0")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3") # DEBUG/RELEASE flags omitted atm (for simplification)
+#SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3") # DEBUG/RELEASE flags omitted atm (for simplification)
 #SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 #SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DGLIBC_XX_DEBUG -Wall -ggdb -g3 -fno-rounding-math -msse -O0")

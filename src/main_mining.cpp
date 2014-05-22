@@ -7,7 +7,7 @@ template<CPUMODE cpumode>
 void primecoin_init(unsigned int thread_id)
 {
 	client = new XPMClient();
-	client->Initialize();
+	client->Initialize(GetArg("-device", 0));
 	client->getWorkers()[0].first->Init();
 }
 

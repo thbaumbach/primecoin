@@ -210,7 +210,7 @@ public:
 	XPMClient(/*zctx_t* ctx*/);
 	~XPMClient();
 	
-	bool Initialize(/*Configuration* cfg*/);
+	bool Initialize(size_t gpu_num_to_use /*Configuration* cfg*/);
 	/*
 	void NotifyBlock(const proto::Block& block);
 	

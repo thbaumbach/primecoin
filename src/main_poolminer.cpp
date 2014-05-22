@@ -20,9 +20,9 @@
 #include <windows.h>
 #endif
 
-#define VERSION_MAJOR 1
-#define VERSION_MINOR 1
-#define VERSION_EXT "a"
+#define VERSION_MAJOR 2
+#define VERSION_MINOR 0
+#define VERSION_EXT "a EXPERIMENTAL/GPU"
 
 /*********************************
 * global variables, structs and extern functions
@@ -543,8 +543,8 @@ int main(int argc, char **argv)
 	std::cout << "*** CAUTION:" << std::endl;
 	std::cout << "*** This is primecoin mining software; if you don't know what this means" << std::endl;
 	std::cout << "*** or you don't want to mine primecoins or you've found this on your PC" << std::endl;
-	std::cout << "*** without prior knowledge, please contact 'xolokram' on" << std::endl;
-	std::cout << "*** http://board.beeeeer.org or via IRC at #beeeeer.org on FreeNode" << std::endl;
+	std::cout << "*** without prior knowledge:" << std::endl;
+	std::cout << "*** please contact 'xolokram' via IRC at #beeeeer.org on FreeNode" << std::endl;
 	std::cout << "***" << std::endl;
 	std::cout << "********************************************" << std::endl;
 
