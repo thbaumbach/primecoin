@@ -22,7 +22,7 @@ Usage
  * `-poolpassword=[pass]` Pool worker password
  * `-poolip=[host]` Pool mining ip or host address
  * `-poolport=[port]` Pool mining port
- * -`-genproclimit=[threads]` Number of CPU-Threads to use-
+ * THIS VERSION IS _CURRENTLY_ USING ONLY ONE THREAD AND THE FIRST GPU
  * `-poolshare=[chainlength]` Minimum chain length of submitted shares, if supported by pool, default 7
  * `-minerid=[0-65000]` A free-to-choose worker ID, if supported by pool, for statistical purpose
  * `-poolfee=[1-100]` Set pool fee ín percent, if supported by pool, default 2
