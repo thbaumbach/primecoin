@@ -68,6 +68,7 @@ __constant uint nps_all[] = { 2, 2, 2, 2, 3, 3, 3, 3, 3, 3,
 							  5, 5,
 							  6 };
 
+__constant uint32_t count[] = {33, 25, 20, 18, 25, 20, 16, 13, 11, 10, 16, 13, 11, 9, 15, 12, 18};
 
 __attribute__((reqd_work_group_size(LSIZE, 1, 1)))
 __kernel void sieve(	__global uint4* gsieve_all,
@@ -129,32 +130,19 @@ __kernel void sieve(	__global uint4* gsieve_all,
 			pos = mad24((uint)(fentry * fiprime), prime, pos) - entry;
 			pos = mad24((uint)((int)pos < (int)0), prime, pos);
 			pos = mad24(lpoff, prime, pos);
-			
-			/*uint index = pos >> 5;
-			if(index < SIZE){
-				
-				#pragma unroll
-				for(int i = 0; i < 8; ++i){
-					atomic_or(&sieve[index], 1u << pos);
-					pos = mad24(var, prime, pos);
-					index = pos >> 5;
-				}
-				
-				do{
-					atomic_or(&sieve[index], 1u << pos);
-					pos = mad24(var, prime, pos);
-					index = pos >> 5;
-				}while(index < SIZE);
-				
-			}*/
-			
-			while(true){
-				const uint index = pos >> 5;
-				if(index >= SIZE)
-					break;
-				atomic_or(&sieve[index], 1u << pos);
-				pos = mad24(var, prime, pos);
-			}
+      
+      // This cycle must give best performance in theory.. but only in theory
+      //for (unsigned i = 0; i < count[b]; i++) {
+      //  atomic_or(&sieve[pos >> 5], 1u << pos);
+      //  pos = mad24(var, prime, pos);
+      //}
+
+      while (pos < SIZE*32) {
+        atomic_or(&sieve[pos >> 5], 1u << pos); pos = mad24(var, prime, pos);
+        atomic_or(&sieve[pos >> 5], 1u << pos); pos = mad24(var, prime, pos);
+        atomic_or(&sieve[pos >> 5], 1u << pos); pos = mad24(var, prime, pos);
+        atomic_or(&sieve[pos >> 5], 1u << pos); pos = mad24(var, prime, pos);
+      }
 			
 		}
 	
@@ -192,14 +180,14 @@ __kernel void sieve(	__global uint4* gsieve_all,
 		
 		uint index = pos >> 5;
 		
-		if(ip < 18){
-			while(index < SIZE){
-				atomic_or(&sieve[index], 1u << pos);
-				pos += prime;
-				index = pos >> 5;
-			}
+		if(ip < 18) {
+      while (pos < SIZE*32) {
+        atomic_or(&sieve[pos >> 5], 1u << pos); pos = mad24(1u, prime, pos);
+        atomic_or(&sieve[pos >> 5], 1u << pos); pos = mad24(1u, prime, pos);
+        atomic_or(&sieve[pos >> 5], 1u << pos); pos = mad24(1u, prime, pos);        
+      }      
 		}else if(ip < 26){
-			if(index < SIZE){
+// 			if(index < SIZE){
 				atomic_or(&sieve[index], 1u << pos);
 				pos += prime;
 				index = pos >> 5;
@@ -211,16 +199,16 @@ __kernel void sieve(	__global uint4* gsieve_all,
 						atomic_or(&sieve[index], 1u << pos);
 					}
 				}
-			}
+// 			}
 		}else if(ip < 48){
-			if(index < SIZE){
+// 			if(index < SIZE){
 				atomic_or(&sieve[index], 1u << pos);
 				pos += prime;
 				index = pos >> 5;
 				if(index < SIZE){
 					atomic_or(&sieve[index], 1u << pos);
 				}
-			}
+// 			}
 		}else{
 			if(index < SIZE){
 				atomic_or(&sieve[index], 1u << pos);
@@ -473,14 +461,14 @@ __kernel void s_sieve(	__global const uint* gsieve1,
 		for(int line = 0; line < TARGET; ++line)
 			mask |= tmp1[start+line];
 		
-		if(mask != 0xFFFFFFFF)
+		if(mask != 0xFFFFFFFF) {
 			for(int bit = 0; bit < 32; ++bit)
 				if((~mask & (1 << bit))){
 					
 					const uint addr = atomic_inc(fcount);
 					
 					fermat_t info;
-					info.index = SIZE*32*STRIPES/2 + id*32 + bit;
+					info.index = mad24(id, 32u, (unsigned)bit) + SIZE*32*STRIPES/2;
 					info.origin = start;
 					info.chainpos = 0;
 					info.type = 0;
@@ -492,7 +480,7 @@ __kernel void s_sieve(	__global const uint* gsieve1,
 					//return;
 					
 				}
-		
+    }
 	}
 	
 	uint tmp2[WIDTH];
@@ -505,14 +493,14 @@ __kernel void s_sieve(	__global const uint* gsieve1,
 		for(int line = 0; line < TARGET; ++line)
 			mask |= tmp2[start+line];
 		
-		if(mask != 0xFFFFFFFF)
+		if(mask != 0xFFFFFFFF) {
 			for(int bit = 0; bit < 32; ++bit)
 				if((~mask & (1 << bit))){
 					
 					const uint addr = atomic_inc(fcount);
 					
 					fermat_t info;
-					info.index = SIZE*32*STRIPES/2 + id*32 + bit;
+          info.index = mad24(id, 32u, (unsigned)bit) + SIZE*32*STRIPES/2;
 					info.origin = start;
 					info.chainpos = 0;
 					info.type = 1;
@@ -524,26 +512,29 @@ __kernel void s_sieve(	__global const uint* gsieve1,
 					//return;
 					
 				}
+    }
 		
 	}
 	
+	for(int i = 0; i < WIDTH; ++i)
+    tmp2[i] |= tmp1[i];	
 	for(int start = 0; start <= WIDTH-TARGET/2; ++start){
 		
 		uint mask = 0;
 		for(int line = 0; line < TARGET/2; ++line)
-			mask |= tmp1[start+line] | tmp2[start+line];
+			mask |= tmp2[start+line];
 		
 		/*if(TARGET & 1u && (start+TARGET/2) < WIDTH)
 			mask |= tmp1[start+TARGET/2];*/
 		
-		if(mask != 0xFFFFFFFF)
+		if(mask != 0xFFFFFFFF) {
 			for(int bit = 0; bit < 32; ++bit)
 				if((~mask & (1 << bit))){
 					
 					const uint addr = atomic_inc(fcount);
 					
 					fermat_t info;
-					info.index = SIZE*32*STRIPES/2 + id*32 + bit;
+          info.index = mad24(id, 32u, (unsigned)bit) + SIZE*32*STRIPES/2;
 					info.origin = start;
 					info.chainpos = 0;
 					info.type = 2;
@@ -555,6 +546,7 @@ __kernel void s_sieve(	__global const uint* gsieve1,
 					//return;
 					
 				}
+    }
 		
 	}
 	

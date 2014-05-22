@@ -536,7 +536,7 @@ int main(int argc, char **argv)
 	std::cout << "*** Xolominer - Primecoin Pool Miner v" << VERSION_MAJOR << "." << VERSION_MINOR << VERSION_EXT << std::endl;
 	std::cout << "*** by xolokram/TB - visit www.beeeeer.org" << std::endl;
 	std::cout << "***" << std::endl;
-	std::cout << "*** thanks to Sunny King, mikaelh & madMAx510510" << std::endl;
+	std::cout << "*** thanks to Sunny King, mikaelh, madMAx510510 & eXtremal" << std::endl;
 	std::cout << "*** press CTRL+C to exit" << std::endl;
 	std::cout << "********************************************" << std::endl;
 	std::cout << "***" << std::endl;
