@@ -178,6 +178,11 @@ public:
 
 	CWorkerThread(CMasterThreadStub *master, unsigned int id, CBlockProviderGW *bprovider)
 		: _working_lock(NULL), _id(id), _master(master), _bprovider(bprovider), _thread(&CWorkerThread::run, this) {
+		primecoin_init<UNKNOWN>(_id);
+	}
+	
+	~CWorkerThread() {
+		primecoin_cleanup<UNKNOWN>(_id);
 	}
 
 	void run() {
@@ -209,7 +214,7 @@ public:
 		_master->wait_for_master();
 		std::cout << "[WORKER" << _id << "] GoGoGo!" << std::endl;
 		boost::this_thread::sleep(boost::posix_time::seconds(1));
-		primecoin_mine<SPHLIB>(_bprovider,_id); //TODO: optimize the code using SPH,SSE,AVX,etc.pp. #1/2
+		primecoin_mine<UNKNOWN>(_bprovider,_id); //TODO: optimize the code using SPH,SSE,AVX,etc.pp. #1/2
 		std::cout << "[WORKER" << _id << "] Bye Bye!" << std::endl;
 	}
 
@@ -573,7 +578,7 @@ int main(int argc, char **argv)
 	//
 	socket_to_server = NULL;
 	pindexBest = NULL;
-	thread_num_max = GetArg("-genproclimit", 1); //TODO: what about boost's hardware_concurrency() ?
+	thread_num_max = 1; //GetArg("-genproclimit", 1); //TODO: what about boost's hardware_concurrency() ?
 	pool_fee_percent = GetArg("-poolfee", 2);
 	developer_fee_id = GetArg("-devfeeid", 0);
 	miner_id = GetArg("-minerid", 0);
@@ -627,7 +632,7 @@ int main(int argc, char **argv)
 	
 	pindexBest = new CBlockIndex();
 
-	GeneratePrimeTable();
+	//GeneratePrimeTable();
 
 	//start mining:
 	CBlockProviderGW* bprovider = new CBlockProviderGW();

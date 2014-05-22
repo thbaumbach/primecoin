@@ -1,8 +1,13 @@
-Xolo's Primecoin Pool Miner
-===========================
+__! EXPERIMENTAL !__
+====================
+
+---
+
+Xolo's Primecoin Pool Miner (GPU Edition)
+=========================================
 
 This is a pool mining version of primecoin, the so-called xolominer,
-based on mikaelh's high performance version of Sunny King's Primecoin tree.
+based on madmax's GPU miner (madPrimeMiner), see https://bitcointalk.org/index.php?topic=598542.0
 
 Features:
 - pooled mining client
@@ -17,7 +22,7 @@ Usage
  * `-poolpassword=[pass]` Pool worker password
  * `-poolip=[host]` Pool mining ip or host address
  * `-poolport=[port]` Pool mining port
- * `-genproclimit=[threads]` Number of CPU-Threads to use
+ * -`-genproclimit=[threads]` Number of CPU-Threads to use-
  * `-poolshare=[chainlength]` Minimum chain length of submitted shares, if supported by pool, default 7
  * `-minerid=[0-65000]` A free-to-choose worker ID, if supported by pool, for statistical purpose
  * `-poolfee=[1-100]` Set pool fee ín percent, if supported by pool, default 2

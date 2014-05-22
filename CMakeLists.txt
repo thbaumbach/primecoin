@@ -11,15 +11,123 @@ SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 PROJECT(xolominer)
 
 ###
-### OPENCL
+### CONFIG
 ###
-FIND_PACKAGE(OpenCL REQUIRED)
+IF(NOT BITNESS) # Auto-select bitness based on platform
+    IF (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        SET(BITNESS 64)
+    ELSE()
+        SET(BITNESS 32)
+    ENDIF()
+ENDIF()
+
+#select bitness for non-msvc platform. Can be specified as -DBITNESS=32/64 at command-line
+IF(NOT MSVC)
+    SET(BITNESS ${BITNESS} CACHE STRING "Specify bitness, use -DBITNESS=32/64")
+    SET_PROPERTY(CACHE BITNESS PROPERTY STRINGS "64" "32")
+endif()
+#unset OPENCL_LIBRARIES, so that corresponding arch specific libs are found when bitness is changed
+UNSET(OPENCL_LIBRARIES CACHE)
+
+IF(BITNESS EQUAL 64)
+    SET(BITNESS_SUFFIX x86_64)
+ELSEIF(BITNESS EQUAL 32)
+    SET(BITNESS_SUFFIX x86)
+ELSE()
+    MESSAGE(FATAL_ERROR "Bitness specified is invalid")
+ENDIF()
+
+#set platform
+IF(NOT UNIX)
+	SET(PLATFORM win)
+ELSE()
+	SET(PLATFORM lnx)
+ENDIF()
+
+###
+### OPENCL (new)
+###
+#find OpenCL include and libs
+FIND_PATH(OPENCL_INCLUDE_DIRS 
+    NAMES OpenCL/cl.h CL/cl.h
+    HINTS ../../../../include/ $ENV{AMDAPPSDKROOT}/include/
+)
+MARK_AS_ADVANCED(OPENCL_INCLUDE_DIRS)
+
+FIND_LIBRARY(OPENCL_LIBRARIES
+	NAMES OpenCL
+	HINTS ../../../../lib/ $ENV{AMDAPPSDKROOT}/lib
+	PATH_SUFFIXES ${PLATFORM}${BITNESS} ${BITNESS_SUFFIX}
+)
+MARK_AS_ADVANCED(OPENCL_LIBRARIES)
+
+IF(OPENCL_INCLUDE_DIRS STREQUAL "" OR OPENCL_LIBRARIES STREQUAL "")
+	MESSAGE(FATAL_ERROR "Could not locate OpenCL include & libs")
+ELSE()
+	MESSAGE("OpenCL information: CPP bindings found")
+	MESSAGE("  OPENCL_INCLUDE_DIRS: ${OPENCL_INCLUDE_DIRS}") 
+	MESSAGE("  OPENCL_LIBRARIES: ${OPENCL_LIBRARIES}") 
+ENDIF()
+
+#tweaks for cygwin makefile to work with windows-style path
+IF(CYGWIN)
+    SET(PATHS_TO_CONVERT
+		OPENCL_INCLUDE_DIRS
+		OPENCL_LIBRARIES
+	)
+       
+    FOREACH(pathVar ${PATHS_TO_CONVERT})
+        #convert windows paths to cyg linux absolute path
+        EXECUTE_PROCESS(COMMAND cygpath -ua ${${pathVar}}
+			OUTPUT_VARIABLE ${pathVar}
+			OUTPUT_STRIP_TRAILING_WHITESPACE
+		)
+    ENDFOREACH(pathVar)
+ENDIF()
+
 INCLUDE_DIRECTORIES(${OPENCL_INCLUDE_DIRS})
-if(OPENCL_HAS_CPP_BINDINGS)
-	MESSAGE("OpenCL has CPP bindings. Dir is: ${OPENCL_INCLUDE_DIRS}")
-else(OPENCL_HAS_CPP_BINDINGS)
-	MESSAGE("No OpenCL CPP bindings found")
-endif(OPENCL_HAS_CPP_BINDINGS)
+
+#gcc/g++ specific compile options
+SET(COMPILER_FLAGS " ")
+SET(LINKER_FLAGS " ")
+SET(ADDITIONAL_LIBRARIES "")
+
+IF(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+    SET( COMPILER_FLAGS "${COMPILER_FLAGS} -msse2 ")
+    
+    # Note: "rt" is not present on mingw
+    IF(UNIX)
+		#if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+		#	set( COMPILER_FLAGS " -g " )
+		#endif( )
+        SET(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} "rt")
+    ENDIF()
+    
+    IF(BITNESS EQUAL 32)
+        SET(COMPILER_FLAGS "${COMPILER_FLAGS} -m32 ")
+        SET(LINKER_FLAGS "${LINKER_FLAGS} -m32 ")
+    ELSE()
+        SET(COMPILER_FLAGS "${COMPILER_FLAGS} -m64 ")
+        SET(LINKER_FLAGS "${LINKER_FLAGS} -m64 ")
+    ENDIF()
+    
+    SET(COMPILER_FLAGS "${COMPILER_FLAGS} ${EXTRA_COMPILER_FLAGS_GXX} ")
+    SET(LINKER_FLAGS "${LINKER_FLAGS} ${EXTRA_LINKER_FLAGS_GXX} ")
+    SET(ADDITIONAL_LIBRARIES ${ADDITIONAL_LIBRARIES} ${EXTRA_LIBRARIES_GXX})
+ENDIF()
+
+###
+### OPENCL (old)
+###
+#FIND_PACKAGE(OpenCL REQUIRED)
+#INCLUDE_DIRECTORIES(${OPENCL_INCLUDE_DIRS})
+#if(OPENCL_HAS_CPP_BINDINGS)
+#	MESSAGE("OpenCL information: CPP bindings found")
+#	MESSAGE("  OPENCL_INCLUDE_DIRS: ${OPENCL_INCLUDE_DIRS}") 
+#	MESSAGE("  OPENCL_LIBRARIES: ${OPENCL_LIBRARIES}") 
+#else(OPENCL_HAS_CPP_BINDINGS)
+#	MESSAGE("OpenCL information: CPP bindings -NOT- found")
+#endif(OPENCL_HAS_CPP_BINDINGS)
 
 ###
 ### OPENSSL
@@ -85,16 +193,29 @@ LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 INCLUDE_DIRECTORIES("src")
 
 SET(SRC_FILES
+	src/sha256.cpp
+	src/primes.cpp
 	src/prime.cpp
+	src/main_config.cpp
 	src/main_mining.cpp
-	src/main_poolminer.cpp		
+	src/main_poolminer.cpp
+	src/xpmclient.cpp
 )
+
+CONFIGURE_FILE(src/gpu/fermat.cl ${CMAKE_BINARY_DIR}/gpu/fermat.cl COPYONLY)
+CONFIGURE_FILE(src/gpu/sha256.cl ${CMAKE_BINARY_DIR}/gpu/sha256.cl COPYONLY)
+CONFIGURE_FILE(src/gpu/sieve.cl ${CMAKE_BINARY_DIR}/gpu/sieve.cl COPYONLY)
 
 ###
 ### EXECUTABLE
 ###
 ADD_EXECUTABLE(xolominer
 	${SRC_FILES}
+)
+
+SET_TARGET_PROPERTIES(xolominer PROPERTIES
+	COMPILE_FLAGS ${COMPILER_FLAGS}
+	LINK_FLAGS ${LINKER_FLAGS}
 )
 
 ###
@@ -109,6 +230,7 @@ TARGET_LINK_LIBRARIES(xolominer ${GMP_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer ${GMPXX_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer ${OpenSSL_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer ${OPENCL_LIBRARIES})
+TARGET_LINK_LIBRARIES(xolominer ${ADDITIONAL_LIBRARIES})
 TARGET_LINK_LIBRARIES(xolominer "pthread")
 
 IF(WIN32) #<MINGW>
@@ -125,6 +247,7 @@ ENDIF()
 ###
 ### COMMON FLAGS
 ###
+#SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGLIBC_XX_DEBUG -Wall -ggdb -g3 -fno-rounding-math -msse -O0")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3") # DEBUG/RELEASE flags omitted atm (for simplification)
 #SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 #SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DGLIBC_XX_DEBUG -Wall -ggdb -g3 -fno-rounding-math -msse -O0")

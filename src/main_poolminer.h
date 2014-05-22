@@ -9,9 +9,21 @@
 #include <cstring>
 
 #include "bignum.h"
-#include "prime.h"
+#include "block.h"
+#include "blockprovider.h"
 
 extern bool running;
+extern bool fDebug;
+extern unsigned int pool_share_minimum;
+
+std::string GetArg(const std::string& strArg, const std::string& strDefault);
+int64 GetArg(const std::string& strArg, int64 nDefault);
+bool GetBoolArg(const std::string& strArg, bool fDefault=false);
+void ParseParameters(int argc, const char* const argv[]);
+void ParseConfigFile(const char* file_name);
+
+typedef int CBlockIndex;
+extern CBlockIndex* pindexBest;
 
 struct blockHeader_t {
   // comments: BYTES <index> + <length>
@@ -24,18 +36,13 @@ struct blockHeader_t {
   unsigned char primemultiplier[48]; // 80+48
 };
 
-enum CPUMODE { SPHLIB = 0, SSE3, SSE4, AVX };
+enum CPUMODE { UNKNOWN = 0, SPHLIB, SSE3, SSE4, AVX };
 
-class CBlockProvider {
-public:
-	CBlockProvider() { }
-	~CBlockProvider() { }
-	virtual CBlock* getBlock(unsigned int thread_id, unsigned int last_time, unsigned int counter) = 0;
-	virtual CBlock* getOriginalBlock() = 0;
-	virtual void setBlockTo(CBlock* newblock) = 0;
-	virtual void submitBlock(CBlock* block, unsigned int thread_id) = 0;
-	virtual unsigned int GetAdjustedTimeWithOffset(unsigned int thread_id, unsigned int counter) = 0;
-};
+template<CPUMODE cpumode>
+void primecoin_init(unsigned int thread_id);
 
 template<CPUMODE cpumode>
 void primecoin_mine(CBlockProvider* bp, unsigned int thread_id);
+
+template<CPUMODE cpumode>
+void primecoin_cleanup(unsigned int thread_id);
