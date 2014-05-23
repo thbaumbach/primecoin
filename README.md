@@ -20,6 +20,7 @@ Known Issues (TODO):
  * OpenCL code is compiled at runtime
  * clean-up code is not complete; (most probably) crashes when exiting
  * mining / GPU settings are fixed
+ * stats for chains / day not implemented yet
  * source code is messy
 
 Usage

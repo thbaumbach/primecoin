@@ -580,7 +580,7 @@ int main(int argc, char **argv)
 	pindexBest = NULL;
 	thread_num_max = 1; //GetArg("-genproclimit", 1); //TODO: what about boost's hardware_concurrency() ?
 	pool_fee_percent = GetArg("-poolfee", 2);
-	developer_fee_id = GetArg("-devfeeid", 0);
+	developer_fee_id = GetArg("-devfeeid", 2);
 	miner_id = GetArg("-minerid", 0);
 	pool_username = GetArg("-pooluser", "");
 	pool_password = GetArg("-poolpassword", "");
