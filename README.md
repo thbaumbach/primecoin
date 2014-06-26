@@ -20,7 +20,7 @@ Usage
  * `-genproclimit=[threads]` Number of CPU-Threads to use
  * `-poolshare=[chainlength]` Minimum chain length of submitted shares, if supported by pool, default 7
  * `-minerid=[0-65000]` A free-to-choose worker ID, if supported by pool, for statistical purpose
- * `-poolfee=[1-100]` Set pool fee ín percent, if supported by pool, default 2
+ * `-poolfee=[1-100]` Set pool fee in percent, if supported by pool, default 2
  * `-devfeeid=[id]` Set the developer fee ID, if supported by pool, default 0
 
 Building xolominer
@@ -70,5 +70,5 @@ the Primecoin client sofware, see http://primecoin.org.
 License
 -------
 
-Primecoin's mining code is released under conditional MIT license. See  COPYING` for more
+Primecoin's mining code is released under conditional MIT license. See  `COPYING` for more
 information.
