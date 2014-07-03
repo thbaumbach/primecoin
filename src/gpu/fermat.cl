@@ -1144,6 +1144,73 @@ uint2 modulo512to384(uint4 dividendLimbs0,
 }
 
 
+uint2 divq640to384(uint4 dividendLimbs0,
+                   uint4 dividendLimbs1,
+                   uint4 dividendLimbs2,
+                   uint4 dividendLimbs3,
+                   uint4 dividendLimbs4,
+                   uint4 divisorLimbs0,
+                   uint4 divisorLimbs1,
+                   uint4 divisorLimbs2,
+                   uint4 *q0,
+                   uint4 *q1)
+{
+  // Detect dividend and divisor limbs count (remove trailing zero limbs)
+  unsigned dividendLimbs = 20;
+  unsigned divisorLimbs = 12;
+  
+  while (divisorLimbs && !divisorLimbs2.w) {
+    lshiftByLimb3(&divisorLimbs0, &divisorLimbs1, &divisorLimbs2);
+    divisorLimbs--;
+  }  
+  
+  // Normalize dividend and divisor (high bit of divisor must be set to 1)
+  unsigned normalizeShiftCount = 0;  
+  uint32_t bit = 0x80000000;
+  while (!(divisorLimbs2.w & bit)) {
+    normalizeShiftCount++;
+    bit >>= 1;  
+  }    
+  
+  lshift5(&dividendLimbs0, &dividendLimbs1, &dividendLimbs2, &dividendLimbs3, &dividendLimbs4, normalizeShiftCount);
+  lshift3(&divisorLimbs0, &divisorLimbs1, &divisorLimbs2, normalizeShiftCount);    
+  
+  
+  while (dividendLimbs && !dividendLimbs4.w) {
+    lshiftByLimb5(&dividendLimbs0, &dividendLimbs1, &dividendLimbs2, &dividendLimbs3, &dividendLimbs4);
+    dividendLimbs--;
+  }  
+  
+  for (unsigned i = 0; i < (dividendLimbs - divisorLimbs); i++) {
+    uint32_t i32quotient;
+    if (dividendLimbs4.w == divisorLimbs2.w) {
+      i32quotient = 0xFFFFFFFF;
+    } else {
+      uint64_t i64dividend = (((uint64_t)dividendLimbs4.w) << 32) | dividendLimbs4.z;
+      i32quotient = i64dividend / divisorLimbs2.w;
+    }
+    
+    subMul1_v3(&dividendLimbs1, &dividendLimbs2, &dividendLimbs3, &dividendLimbs4,
+               divisorLimbs0, divisorLimbs1, divisorLimbs2,
+               i32quotient);    
+    uint32_t borrow = dividendLimbs4.w;
+    lshiftByLimb5(&dividendLimbs0, &dividendLimbs1, &dividendLimbs2, &dividendLimbs3, &dividendLimbs4);
+    if (borrow) {
+      i32quotient--;
+      add384(&dividendLimbs2, &dividendLimbs3, &dividendLimbs4, divisorLimbs0, divisorLimbs1, divisorLimbs2);
+      if (dividendLimbs4.w > divisorLimbs2.w) {
+        i32quotient--;        
+        add384(&dividendLimbs2, &dividendLimbs3, &dividendLimbs4, divisorLimbs0, divisorLimbs1, divisorLimbs2);
+      }
+    }
+    
+    lshiftByLimb2(q0, q1);
+    (*q0).x = i32quotient;
+}
+
+return (uint2){divisorLimbs, 32-normalizeShiftCount};
+}
+
 
 void mul352round_v3(uint4 op1l0, uint4 op1l1, uint4 op1l2, uint32_t m1, uint32_t m2,
                     uint64_t *R0, uint64_t *R1, uint64_t *R2, uint64_t *R3,
@@ -1419,6 +1486,99 @@ void redc1_352_v3(uint4 limbs0, uint4 limbs1, uint4 limbs2, uint4 limbs3, uint4 
 }
 
 
+
+
+void mul352to192(uint4 op1l0, uint4 op1l1, uint4 op1l2, // low --> hi
+                 uint4 op2l0, uint2 op2l1, // low --> hi
+                 uint4 *rl0, uint4 *rl1, uint4 *rl2, uint4 *rl3, uint4 *rl4)
+{ 
+  #define b1 op2l1.y
+  #define b2 op2l1.x
+  #define b3 op2l0.w
+  #define b4 op2l0.z
+  #define b5 op2l0.y
+  #define b6 op2l0.x  
+  
+  ulong R0x = op1l0.x * b6;
+  ulong R0y = op1l0.y * b6;
+  ulong R0z = op1l0.z * b6;
+  ulong R0w = op1l0.w * b6;
+  ulong R1x = op1l1.x * b6;
+  ulong R1y = op1l1.y * b6;
+  ulong R1z = op1l1.z * b6 + mul_hi(op1l0.x, b1);
+  ulong R1w = op1l1.w * b6 + mul_hi(op1l0.y, b1);  
+  ulong R2x = op1l2.x * b6 + mul_hi(op1l0.z, b1);
+  ulong R2y = op1l2.y * b6 + mul_hi(op1l0.w, b1);
+  ulong R2z = op1l2.z * b6 + mul_hi(op1l1.x, b1);
+  ulong R2w = mul_hi(op1l1.y, b1);
+  ulong R3x = mul_hi(op1l1.z, b1);
+  ulong R3y = mul_hi(op1l1.w, b1);
+  ulong R3z = mul_hi(op1l2.x, b1);
+  ulong R3w = mul_hi(op1l2.y, b1);
+  ulong R4x = mul_hi(op1l2.z, b1);
+  
+  mul352round_v3(op1l0, op1l1, op1l2, b6, b5, &R0y, &R0z, &R0w, &R1x, &R1y, &R1z, &R1w, &R2x, &R2y, &R2z, &R2w);
+  mul352round_v3(op1l0, op1l1, op1l2, b5, b4, &R0z, &R0w, &R1x, &R1y, &R1z, &R1w, &R2x, &R2y, &R2z, &R2w, &R3x);
+  mul352round_v3(op1l0, op1l1, op1l2, b4, b3, &R0w, &R1x, &R1y, &R1z, &R1w, &R2x, &R2y, &R2z, &R2w, &R3x, &R3y);
+  mul352round_v3(op1l0, op1l1, op1l2, b3, b2, &R1x, &R1y, &R1z, &R1w, &R2x, &R2y, &R2z, &R2w, &R3x, &R3y, &R3z);
+  mul352round_v3(op1l0, op1l1, op1l2, b2, b1, &R1y, &R1z, &R1w, &R2x, &R2y, &R2z, &R2w, &R3x, &R3y, &R3z, &R3w);
+  
+  union {
+    uint2 v32;
+    ulong v64;
+  } Int;
+  
+  Int.v64 = R1z; R1w += Int.v32.y;
+  Int.v64 = R1w; R2x += Int.v32.y;
+  Int.v64 = R2x; R2y += Int.v32.y;
+  Int.v64 = R2y; R2z += Int.v32.y;
+  Int.v64 = R2z; R2w += Int.v32.y;
+  Int.v64 = R2w; R3x += Int.v32.y;
+  Int.v64 = R3x; R3y += Int.v32.y;
+  Int.v64 = R3y; R3z += Int.v32.y;
+  Int.v64 = R3z; R3w += Int.v32.y;
+  Int.v64 = R3w; R4x += Int.v32.y;
+  
+  *rl0 = (uint4){R0x, R0y, R0z, R0w};
+  *rl1 = (uint4){R1x, R1y, R1z, R1w};
+  *rl2 = (uint4){R2x, R2y, R2z, R2w};
+  *rl3 = (uint4){R3x, R3y, R3z, R3w};
+  (*rl4).x = R4x;
+  
+  #undef b1
+  #undef b2
+  #undef b3
+  #undef b4
+  #undef b5
+  #undef b6
+}
+
+
+void redcify352(unsigned shiftCount,
+                uint4 q0, uint4 q1,
+                uint4 limbs0, uint4 limbs1, uint4 limbs2,
+                uint4 *r0, uint4 *r1, uint4 *r2)
+{
+  uint4 mr0, mr1, mr2, mr3, mr4;
+  
+  for (unsigned  i = 0, ie = (128-shiftCount)/32; i < ie; i++)
+    rshiftByLimb2(&q0, &q1);
+  rshift2(&q0, &q1, (128-shiftCount) % 32);
+  
+  mul352to192(limbs0, limbs1, limbs2, q0, (uint2){q1.x, q1.y}, &mr0, &mr1, &mr2, &mr3, &mr4);
+  
+  // substract 2^(384+shiftCount) - q*R
+  *r0 = ~mr0;
+  *r1 = ~mr1;
+  (*r2).x = ~mr2.x;
+  (*r2).y = ~mr2.y;
+  (*r2).z = ~mr2.z;
+  
+  // TODO: bring carry
+  (*r0).x++;
+}
+
+
 void montgomeryMul352(uint4 *rl0, uint4 *rl1, uint4 *rl2,
                       uint4 ml0, uint4 ml1, uint4 ml2, 
                       uint4 modl0, uint4 modl1, uint4 modl2,
@@ -1429,210 +1589,70 @@ void montgomeryMul352(uint4 *rl0, uint4 *rl1, uint4 *rl2,
   redc1_352_v3(m0, m1, m2, m3, m4, m5, modl0, modl1, modl2, inverted, rl0, rl1, rl2);
 }
 
-void FermatTest352(uint4 limbs0, uint4 limbs1, uint4 limbs2,
+void FermatTest352(uint4 *restrict limbs,
                    uint4 *resultLimbs0, uint4 *resultLimbs1, uint4 *resultLimbs2)
 {
-  // Invert lowest modulo limb
-  __private uint4 precomputed[3*16];
-  uint32_t inverted = invert_limb(limbs0.x);
-
   uint2 bitSize;
-  uint4 BmLimbs0, BmLimbs1, BmLimbs2;
+  uint4 redcl0, redcl1, redcl2;
+  uint32_t inverted = invert_limb(limbs[0].x);  
+  
+  uint4 q0 = 0, q1 = 0;  
   {
-    uint4 dl3 = {0, 0, 0, 0};
-    uint4 dl2 = {0, 0, 0, 1};
+    uint4 dl4 = {0, 0, 0, 0};    
+    uint4 dl3 = {0, 0, 0, 1};
+    uint4 dl2 = {0, 0, 0, 0};
     uint4 dl1 = {0, 0, 0, 0};
     uint4 dl0 = {0, 0, 0, 0};
-   
-    // Retrieve of "1" in Montgomery representation        
-    modulo512to384(dl0, dl1, dl2, dl3, limbs0, limbs1, limbs2, &BmLimbs0, &BmLimbs1, &BmLimbs2);
-    precomputed[3*0 + 0] = BmLimbs0;
-    precomputed[3*0 + 1] = BmLimbs1;
-    precomputed[3*0 + 2] = BmLimbs2;    
-    
-    // Retrieve of "2" in Montgomery representation        
-    dl2.w = 2;
-    bitSize = modulo512to384(dl0, dl1, dl2, dl3, limbs0, limbs1, limbs2, &BmLimbs0, &BmLimbs1, &BmLimbs2);
-    precomputed[3*1 + 0] = BmLimbs0;
-    precomputed[3*1 + 1] = BmLimbs1;
-    precomputed[3*1 + 2] = BmLimbs2;        
+    divq640to384(dl0, dl1, dl2, dl3, dl4, limbs[0], limbs[1], limbs[2], &q0, &q1);
+  }
+  
+  
+  // Retrieve of "2" in Montgomery representation
+  {
+    uint4 dl3 = {0, 0, 0, 0};
+    uint4 dl2 = {0, 0, 0, 2};
+    uint4 dl1 = {0, 0, 0, 0};
+    uint4 dl0 = {0, 0, 0, 0};    
+    bitSize = modulo512to384(dl0, dl1, dl2, dl3, limbs[0], limbs[1], limbs[2], &redcl0, &redcl1, &redcl2);
     --bitSize.y;
     if (bitSize.y == 0) {
       --bitSize.x;
       bitSize.y = 32;
     }
   }
-
-  // Calcutate powers range 2-16 and cache in global memory  
-  uint4 m0, m1, m2, m3, m4, m5;  
-  uint4 redcl0 = BmLimbs0,
-        redcl1 = BmLimbs1,
-        redcl2 = BmLimbs2;
-  for (unsigned i = 2; i < 16; i++) {
-    montgomeryMul352(&redcl0, &redcl1, &redcl2, BmLimbs0, BmLimbs1, BmLimbs2, limbs0, limbs1, limbs2, inverted);
-    precomputed[3*i + 0] = redcl0;
-    precomputed[3*i + 1] = redcl1;
-    precomputed[3*i + 2] = redcl2;
-  }
-
-  uint4 exp0 = limbs0;
-  uint4 exp1 = limbs1;
-  uint4 exp2 = limbs2;
-  --exp0.x;
- 
-  for (unsigned i = 0; i < 12-bitSize.x; i++)
-    lshiftByLimb3(&exp0, &exp1, &exp2);
   
-  barrier(CLK_LOCAL_MEM_FENCE);  
-  exp2.w <<= (bitSize.y ? 32-bitSize.y : 0);  
-  redcl0 = BmLimbs0;
-  redcl1 = BmLimbs1;
-  redcl2 = BmLimbs2;
+  uint32_t *data = (uint32_t*)limbs;
+  int remaining = (bitSize.x-1)*32 + bitSize.y;
   
-  unsigned shiftCount = 0;
-  unsigned square = 1;
-  unsigned groupSize = (bitSize.y % 4) ? (bitSize.y % 4) : 4;
-  unsigned bitcount = bitSize.y;
-  while (bitSize.x) {
-    while (bitcount) {
-      uint4 mult0, mult1, mult2;
-      if (!square) {
-        unsigned index = 3 * (exp2.w >> (32 - shiftCount));
-        mult0 = precomputed[index];
-        mult1 = precomputed[index+1];
-        mult2 = precomputed[index+2];
-      }
-
-      groupSize = square ? groupSize : 1;
-      exp2.w <<= shiftCount;
-      bitcount -= shiftCount;
-      shiftCount = square ? groupSize : 0;    
-      while (groupSize) {
-        mult0 = square ? redcl0 : mult0;
-        mult1 = square ? redcl1 : mult1;
-        mult2 = square ? redcl2 : mult2;
-        montgomeryMul352(&redcl0, &redcl1, &redcl2, mult0, mult1, mult2, limbs0, limbs1, limbs2, inverted);
-        groupSize--;
-      }
-
-      square ^= 1;
-      groupSize = 4;
-    }
-
-    lshiftByLimb3(&exp0, &exp1, &exp2);
-    --bitSize.x;
-    bitcount = 32;
+  while (remaining > 0) {
+    int bitPos = max(remaining-7, 0);
+    int size = min(remaining, 7);
+    
+    uint64_t v64 = *(uint64_t*)(data+bitPos/32) - (remaining <= 7 ? 1 : 0);
+    v64 >>= bitPos % 32;
+    uint32_t index = ((uint32_t)v64) & ((1 << size) - 1);
+    
+    uint4 m0, m1, m2;
+    for (unsigned i = 0; i < size; i++)
+      montgomeryMul352(&redcl0, &redcl1, &redcl2, redcl0, redcl1, redcl2, limbs[0], limbs[1], limbs[2], inverted);
+    redcify352(index, q0, q1, limbs[0], limbs[1], limbs[2], &m0, &m1, &m2);
+    montgomeryMul352(&redcl0, &redcl1, &redcl2, m0, m1, m2, limbs[0], limbs[1], limbs[2], inverted);
+    
+    remaining -= 7;
   }
-
-  barrier(CLK_LOCAL_MEM_FENCE);
-  redc1_352_v3(redcl0, redcl1, redcl2, 0, 0, 0, limbs0, limbs1, limbs2, inverted, resultLimbs0, resultLimbs1, resultLimbs2); 
-  return;
+  
+  redc1_352_v3(redcl0, redcl1, redcl2, 0, 0, 0, limbs[0], limbs[1], limbs[2], inverted, resultLimbs0, resultLimbs1, resultLimbs2); 
 }
 
-
 bool fermat(const uint* p) {
-  uint4 chl0 = {p[0], p[1], p[2], p[3]};
-  uint4 chl1 = {p[4], p[5], p[6], p[7]};
-  uint4 chl2 = {p[8], p[9], p[10], 0};
-
   uint4 modpowl0, modpowl1, modpowl2;
-  FermatTest352(chl0, chl1, chl2, &modpowl0, &modpowl1, &modpowl2);
+  FermatTest352((const uint4*)p, &modpowl0, &modpowl1, &modpowl2);
   --modpowl0.x;
   modpowl0 |= modpowl1;
   modpowl0 |= modpowl2;
   modpowl0.xy |= modpowl0.zw;
   modpowl0.x |= modpowl0.y;
   return modpowl0.x == 0;
-  
-	
-	uint t[N];
-	
-	uint mp[N];
-	uint rinv[N];
-	
-	t[N-1] = 1u << 31;
-	for(int i = 0; i < N-1; ++i)
-		t[i] = 0;
-	
-	xbinGCD(t, p, rinv, mp);
-	
-	uint base[N];
-	uint result[N];
-	
-	base[0] = 2;
-	for(int i = 1; i < N; ++i)
-		base[i] = 0;
-	
-	result[0] = 1;
-	for(int i = 1; i < N; ++i)
-		result[i] = 0;
-	
-	modulz(base, p);
-	modulz(result, p);
-	
-	uint e[N];
-	for(int i = 0; i < N; ++i)
-		e[i] = p[i];
-	
-	e[0] -= 1;
-	
-	uint s[N];
-	bool state = false;
-	while(true){
-		
-		if(!state){
-			
-			bool test = false;
-			for(int i = 0; i < N; ++i)
-				test = test || (e[i] > 0);
-			
-			if(!test)
-				break;
-			
-		}
-		
-		if(!state && (e[0] & 1)){
-			
-			mov(s, result);
-			state = true;
-			
-		}else{
-			
-			mov(s, base);
-			state = false;
-			
-		}
-		
-		montymul(t, s, base, p, mp);
-		
-		if(state){
-			
-			mov(result, t);
-			
-		}else{
-			
-			mov(base, t);
-			shr(e);
-			
-		}
-		
-		
-	}
-	
-	uint w[2*N];
-	for(int i = 0; i < 2*N; ++i)
-		w[i] = 0;
-	
-	mad_211(w, result, rinv);
-	
-	modul(&w[N], w, p);
-	
-	bool test = w[N] == 1;
-	for(int i = 1; i < N; ++i)
-		test = test && (w[N+i] == 0);
-	
-	return test;
-	
 }
 
 
@@ -1817,10 +1837,11 @@ __kernel void fermat_kernel(__global uchar* result,
 	
 	const uint id = get_global_id(0);
 	
-	uint p[N];
+	uint p[N+1];
 	
 	for(int i = 0; i < N; ++i)
 		p[i] = fprimes[id*N+i];
+  p[N] = 0;
 	
 	result[id] = fermat(p);
 	

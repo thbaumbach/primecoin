@@ -90,7 +90,7 @@ __kernel void sieve(	__global uint4* gsieve_all,
 	for(uint i = 0; i < SIZE/LSIZE; ++i)
 		sieve[i*LSIZE+id] = 0;
 	
-	barrier(CLK_LOCAL_MEM_FENCE);
+
 	
 	{
 		uint lprime[2];
@@ -107,7 +107,6 @@ __kernel void sieve(	__global uint4* gsieve_all,
 		
 		#pragma unroll
 		for(int b = 0; b < S1RUNS; ++b){
-			
 			const uint var = LSIZE >> nps;
 			const uint lpoff = id & (var-1);
 			
@@ -169,7 +168,7 @@ __kernel void sieve(	__global uint4* gsieve_all,
 	
 	uint lpos = 0;
 	#pragma unroll
-	for(uint ip = 1; ip < SCOUNT/LSIZE; ++ip){
+  for(uint ip = 1; ip < 48; ++ip){
 		
 		const uint prime = plifo[lpos];
 		const float fiprime = as_float(fiplifo[lpos]);
@@ -187,32 +186,24 @@ __kernel void sieve(	__global uint4* gsieve_all,
         atomic_or(&sieve[pos >> 5], 1u << pos); pos = mad24(1u, prime, pos);        
       }      
 		}else if(ip < 26){
-// 			if(index < SIZE){
 				atomic_or(&sieve[index], 1u << pos);
 				pos += prime;
 				index = pos >> 5;
-				if(index < SIZE){
+// 				if(index < SIZE){
 					atomic_or(&sieve[index], 1u << pos);
 					pos += prime;
 					index = pos >> 5;
 					if(index < SIZE){
 						atomic_or(&sieve[index], 1u << pos);
 					}
-				}
-// 			}
+// 				}
 		}else if(ip < 48){
-// 			if(index < SIZE){
 				atomic_or(&sieve[index], 1u << pos);
 				pos += prime;
 				index = pos >> 5;
 				if(index < SIZE){
 					atomic_or(&sieve[index], 1u << pos);
 				}
-// 			}
-		}else{
-			if(index < SIZE){
-				atomic_or(&sieve[index], 1u << pos);
-			}
 		}
 		
 		if(ip+NLIFO < SCOUNT/LSIZE){
@@ -231,6 +222,36 @@ __kernel void sieve(	__global uint4* gsieve_all,
 		lpos = lpos % NLIFO;
 		
 	}
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+#pragma unroll
+	for(uint ip = 48; ip < SCOUNT/LSIZE; ++ip){
+    
+    const uint prime = plifo[lpos];
+    const float fiprime = as_float(fiplifo[lpos]);
+    uint pos = olifo[lpos];
+    
+    pos = mad24((uint)(fentry * fiprime), prime, pos) - entry;
+    pos = mad24((uint)((int)pos < (int)0), prime, pos);
+
+    atomic_or(&sieve[pos >> 5], 1u << pos);
+    
+    if(ip+NLIFO < SCOUNT/LSIZE){
+      
+      pprimes += LSIZE;
+      poffset += LSIZE;
+      
+      const uint2 tmp = *pprimes;
+      plifo[lpos] = tmp.x;
+      fiplifo[lpos] = tmp.y;
+      olifo[lpos] = *poffset;
+      
+    }
+    
+    lpos++;
+    lpos = lpos % NLIFO;
+    
+  }	
 	
 	barrier(CLK_LOCAL_MEM_FENCE);
 	
