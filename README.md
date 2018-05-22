@@ -1,3 +1,11 @@
+⚠️⚡⚠️⚡⚠️⚡
+
+This project is very old and unmaintained!
+
+It's still here for educational purpose only.
+
+⚠️⚡⚠️⚡⚠️⚡
+
 Xolo's Primecoin Pool Miner
 ===========================
 
